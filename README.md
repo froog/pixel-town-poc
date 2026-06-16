@@ -51,9 +51,9 @@ pixel-town-poc/
     main.js
 ```
 
-`index.html` now loads a small Three.js viewer from `src/main.js`. Serve the
-folder over HTTP and open the local URL in a browser to inspect the cleaned
-shrine asset.
+`index.html` now loads a small Three.js asset shelf from `src/main.js`. Serve
+the folder over HTTP and open the local URL in a browser to inspect the cleaned
+shrine beside the newer direct parametric GLBs.
 
 ## Implemented Now
 
@@ -64,7 +64,8 @@ shrine asset.
 - Real TripoSR backend hook for `scripts/run_image_to_3d_asset.py`.
 - Sample TripoSR-generated outputs for `shrine_01`.
 - Cleanup/normalisation for generated GLBs while preserving vertex colors.
-- Basic Three.js scene that loads `assets/generated/shrine_01_simple_clean.glb`.
+- Basic Three.js scene that loads the cleaned shrine plus direct parametric
+  shrine, house, train, and vending-machine GLBs.
 - Script interface documentation in `docs/SCRIPT_INTERFACES.md`.
 
 ## Not Implemented Yet
@@ -72,7 +73,7 @@ shrine asset.
 - Real VLM scene parsing.
 - Real image generation for clean intermediate asset images.
 - Blender-grade cleanup, retopology, or decimation.
-- Multi-asset scene composition.
+- Real scene composition and placement against the source panorama.
 - Production-quality clean asset generation.
 
 ## Recommended Hybrid Pipeline
@@ -212,9 +213,10 @@ Then open:
 http://localhost:8010
 ```
 
-The viewer uses CDN-hosted Three.js modules, loads the cleaned shrine GLB,
-enables vertex colors on imported meshes, adds orbit controls, and provides a
-small ground/grid reference. Press `R` in the browser to reset the camera.
+The viewer uses CDN-hosted Three.js modules, loads the cleaned shrine plus the
+newer direct parametric GLBs, enables vertex colors when available, adds orbit
+controls, labels each asset, and provides a small ground/grid reference. Press
+`R` in the browser to reset the camera.
 
 ### 6. Generate a direct parametric GLB
 

@@ -1,7 +1,7 @@
 # Project Status
 
 This repository is currently a lightweight scaffold for the Pixel Town 3D asset
-pipeline, with a basic Three.js scene for previewing the cleaned shrine asset.
+pipeline, with a basic Three.js asset shelf for previewing generated GLBs.
 
 ## What Is Implemented
 
@@ -22,8 +22,9 @@ pipeline, with a basic Three.js scene for previewing the cleaned shrine asset.
   and passed through TripoSR as `shrine_01_simple`.
 - `scripts/cleanup_glb_asset.py` performs a first cleanup pass for generated
   GLBs while preserving vertex colors.
-- `index.html` and `src/main.js` provide a basic Three.js viewer for
-  `assets/generated/shrine_01_simple_clean.glb`.
+- `index.html` and `src/main.js` provide a basic Three.js viewer for the
+  cleaned shrine plus direct parametric shrine, house, train, and
+  vending-machine GLBs.
 - Direct parametric GLBs have been generated for `house_blue_01`, `train_01`,
   `vending_machine_01`, and a shrine baseline.
 - `docs/SCRIPT_INTERFACES.md` describes the expected CLI contracts and data
@@ -43,9 +44,8 @@ pipeline, with a basic Three.js scene for previewing the cleaned shrine asset.
 - The clean asset generator does not call an image backend yet.
 - `assets/generated/shrine_01_raw.glb` is valid when generated with
   `--backend tripo`, but still needs cleanup and quality review.
-- The browser scene is intentionally minimal and currently hard-codes
-  `shrine_01_simple_clean.glb`; it does not yet read a generic placement
-  manifest.
+- The browser scene is intentionally minimal and currently hard-codes a small
+  asset shelf; it does not yet read a generic placement manifest.
 - The parametric backend is intentionally simple box/gable geometry. It is a
   browser-friendly baseline, not a full modelling system.
 
