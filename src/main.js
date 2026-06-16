@@ -147,7 +147,7 @@ loader.load(
   (gltf) => {
     const shrine = gltf.scene;
     applyBrowserMaterial(shrine);
-    shrine.rotation.set(0.08, -0.8, -0.32);
+    shrine.rotation.set(-Math.PI / 2, -Math.PI / 4, 0);
     frameObject(shrine);
     scene.add(shrine);
     statusEl.textContent = 'Loaded assets/generated/shrine_01_simple_clean.glb';
