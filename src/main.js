@@ -4,6 +4,12 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const app = document.querySelector('#app');
 const statusEl = document.querySelector('#status');
+const rotationInputs = {
+  x: document.querySelector('#x-rotation'),
+  y: document.querySelector('#y-rotation'),
+  z: document.querySelector('#z-rotation'),
+};
+let shrineObject = null;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87d7f4);
@@ -141,14 +147,43 @@ function resetCamera() {
   controls.update();
 }
 
+function degreesToRadians(degrees) {
+  return THREE.MathUtils.degToRad(Number.isFinite(degrees) ? degrees : 0);
+}
+
+function readRotationDegrees() {
+  return {
+    x: Number.parseFloat(rotationInputs.x.value),
+    y: Number.parseFloat(rotationInputs.y.value),
+    z: Number.parseFloat(rotationInputs.z.value),
+  };
+}
+
+function applyRotationFromInputs() {
+  if (!shrineObject) return;
+
+  const rotation = readRotationDegrees();
+  shrineObject.rotation.set(
+    degreesToRadians(rotation.x),
+    degreesToRadians(rotation.y),
+    degreesToRadians(rotation.z)
+  );
+  frameObject(shrineObject);
+}
+
+Object.values(rotationInputs).forEach((input) => {
+  input.addEventListener('input', applyRotationFromInputs);
+  input.addEventListener('change', applyRotationFromInputs);
+});
+
 const loader = new GLTFLoader();
 loader.load(
   './assets/generated/shrine_01_simple_clean.glb',
   (gltf) => {
     const shrine = gltf.scene;
+    shrineObject = shrine;
     applyBrowserMaterial(shrine);
-    shrine.rotation.set(-Math.PI / 2, -Math.PI / 4, -Math.PI / 4);
-    frameObject(shrine);
+    applyRotationFromInputs();
     scene.add(shrine);
     statusEl.textContent = 'Loaded assets/generated/shrine_01_simple_clean.glb';
   },

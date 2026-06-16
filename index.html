@@ -16,6 +16,20 @@
     #hud b { color: #0a5f86; }
     #hud kbd { background: rgba(16,33,46,.10); padding: 1px 5px; border-radius: 4px; }
     #status { margin-top: 6px; color: #4a6575; }
+    #rotation-controls {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
+      margin-top: 10px;
+    }
+    #rotation-controls label { display: grid; gap: 3px; font-weight: 700; }
+    #rotation-controls span { font-size: 12px; }
+    #rotation-controls input {
+      width: 100%; box-sizing: border-box; border: 1px solid rgba(16,33,46,.18);
+      border-radius: 6px; padding: 5px 6px; color: #10212e; background: rgba(255,255,255,.78);
+      font: 600 14px system-ui, sans-serif;
+    }
+    .axis-x span { color: #b92f2f; }
+    .axis-y span { color: #1f7f42; }
+    .axis-z span { color: #2359b6; }
   </style>
 </head>
 <body>
@@ -23,6 +37,11 @@
   <div id="hud">
     <b>Pixel Town Clean Shrine</b><br>
     Drag to orbit. Scroll to zoom. Press <kbd>R</kbd> to reset. Axes: X red, Y green, Z blue.
+    <div id="rotation-controls">
+      <label class="axis-x"><span>X deg</span><input id="x-rotation" type="number" value="-90" step="15"></label>
+      <label class="axis-y"><span>Y deg</span><input id="y-rotation" type="number" value="-45" step="15"></label>
+      <label class="axis-z"><span>Z deg</span><input id="z-rotation" type="number" value="-45" step="15"></label>
+    </div>
     <div id="status">Loading cleaned GLB...</div>
   </div>
   <script type="importmap">
