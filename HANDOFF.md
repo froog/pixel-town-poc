@@ -37,13 +37,26 @@ pixel-town-poc/
       shrine_01_notes.md
   docs/
     SCRIPT_INTERFACES.md
-    Pixel_Town_3D_POC_Handoff.docx
+    Pixel_Town_3D_POC_Handoff.md
 ```
 
 `index.html` is present but currently references `./src/main.js`, which is not
 in this checkout. Treat the browser viewer as a future or restoration task.
 
 ## Current Working Pipeline
+
+The recommended hybrid branch is:
+
+1. Parse the panorama into object records.
+2. Use one object record, such as `shrine_01`, plus source-scene context to
+   generate a clean isolated 3D-style concept image.
+3. Send that generated clean image to the image-to-3D backend.
+4. Review the mesh, then clean and normalise it before world integration.
+
+This should improve over direct crop-to-3D because the backend receives a single
+clear object instead of a crop containing stairs, trees, sky, signage, and other
+nearby scene elements. The main risk is concept drift, so generated clean images
+must be reviewed against the source before mesh generation.
 
 Run the stub pipeline with:
 
@@ -111,7 +124,9 @@ Current outputs:
 - `assets/intermediate/shrine_01_clean.txt`
 - `assets/intermediate/shrine_01_clean_meta.json`
 
-The PNG is currently a source crop, not a generated isolated clean render.
+The PNG is currently a source crop, not a generated isolated clean render. The
+next implementation should generate a clean background-free concept image from
+the object metadata and source-scene context.
 
 ### `scripts/run_image_to_3d_asset.py`
 
@@ -164,9 +179,9 @@ Suggested first asset tests:
 ## Recommended Next Technical Iteration
 
 1. Generate or manually create a cleaner isolated shrine input image.
-2. Add validation that distinguishes placeholder GLB files from valid GLB
+2. Wire a real image-generation backend into `generate_clean_asset_image.py`.
+3. Add validation that distinguishes placeholder GLB files from valid GLB
    assets.
-3. Connect one real clean-image backend while preserving the crop fallback.
 4. Add cleanup and normalisation for the TripoSR output.
 5. Rebuild or restore the Three.js viewer under `src/main.js`.
 

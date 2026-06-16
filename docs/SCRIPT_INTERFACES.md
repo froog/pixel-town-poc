@@ -114,12 +114,18 @@ Confirm the route chosen for each important asset.
 
 Generate a clean isolated object image to use as an image-to-3D input.
 
+This is the key hybrid step. It should take the parsed object record plus
+source-scene context and ask an image-generation backend for a single-object,
+background-free, 3D-style concept render. That generated image then becomes the
+input to the image-to-3D stage.
+
 ### Responsibilities
 
 - read scene parse JSON,
 - find the target asset,
 - optionally crop the panorama automatically,
 - generate a clean isolated concept image,
+- preserve source-scene identity while removing background clutter,
 - optionally generate multiple angles,
 - write metadata about the generated intermediate.
 
@@ -140,6 +146,14 @@ python3 scripts/generate_clean_asset_image.py \
 - `--style pixel-friendly|toon|neutral-3d`
 - `--backend stub|openai|other`
 - `--dry-run`
+
+Future real backends should include prompt fields derived from:
+
+- object name and category,
+- object notes and visual description,
+- approximate location/depth in the source scene,
+- source crop path when available,
+- route reason and target style.
 
 ### Outputs
 

@@ -38,7 +38,7 @@ pixel-town-poc/
       shrine_01_notes.md
   docs/
     SCRIPT_INTERFACES.md
-    Pixel_Town_3D_POC_Handoff.docx
+    Pixel_Town_3D_POC_Handoff.md
   scripts/
     parse_scene.py
     route_assets.py
@@ -71,6 +71,20 @@ not expected to run in this checkout.
 - Production-quality clean asset generation.
 
 ## Recommended Hybrid Pipeline
+
+The recommended path for visually distinctive assets is:
+
+1. Parse the scene into object records with IDs, names, descriptions, rough
+   locations, complexity, occlusion, and priority.
+2. Use each object record plus source-scene context to generate a clean isolated
+   3D-style concept image of that object.
+3. Feed that clean concept image into an image-to-3D backend.
+4. Review, clean, normalise, and only then place the mesh into the world.
+
+This is the preferred branch for assets like `shrine_01` because direct crops
+contain background, stairs, trees, and adjacent props. The tradeoff is drift:
+the generated clean image can become prettier but less faithful to the source,
+so every clean image needs human review before 3D generation.
 
 ### 1. Parse the scene
 
@@ -116,7 +130,8 @@ The current implementation writes:
 - `assets/intermediate/shrine_01_clean_meta.json`
 
 The PNG is currently a crop from the source panorama, not a fully isolated
-generated clean render.
+generated clean render. The next version should use the parsed object record as
+prompt context and generate a background-free, single-object concept render.
 
 ### 4. Run image-to-3D
 

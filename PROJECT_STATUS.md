@@ -44,7 +44,9 @@ python3 scripts/run_image_to_3d_asset.py --asset shrine_01 --scene assets/scene_
 ## Recommended Next Work
 
 1. Generate or manually create a cleaner isolated shrine input image.
-2. Add validation around generated artifacts, especially GLB validity.
-3. Add cleanup/normalisation for generated GLBs.
-4. Decide whether the next milestone is a browser viewer or better asset
+2. Wire `generate_clean_asset_image.py` to an image-generation backend that uses
+   parsed scene/object context to produce a clean background-free concept image.
+3. Add validation around generated artifacts, especially GLB validity.
+4. Add cleanup/normalisation for generated GLBs.
+5. Decide whether the next milestone is a browser viewer or better asset
    generation.
