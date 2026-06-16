@@ -52,6 +52,49 @@ grid.material.opacity = 0.22;
 grid.material.transparent = true;
 scene.add(grid);
 
+const axisGroup = new THREE.Group();
+axisGroup.position.set(-1.55, 0.02, -1.45);
+scene.add(axisGroup);
+
+function createAxisLabel(text, color) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const context = canvas.getContext('2d');
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = 'rgba(255, 255, 255, 0.82)';
+  context.beginPath();
+  context.arc(64, 64, 46, 0, Math.PI * 2);
+  context.fill();
+  context.fillStyle = color;
+  context.font = '700 64px system-ui, sans-serif';
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText(text, 64, 66);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
+  label.scale.set(0.28, 0.28, 1);
+  return label;
+}
+
+function addAxis(name, color, direction) {
+  const length = 1.25;
+  const dir = direction.clone().normalize();
+  const origin = new THREE.Vector3(0, 0, 0);
+
+  axisGroup.add(new THREE.ArrowHelper(dir, origin, length, color, 0.2, 0.12));
+
+  const label = createAxisLabel(name, `#${color.toString(16).padStart(6, '0')}`);
+  label.position.copy(dir.multiplyScalar(length + 0.22));
+  axisGroup.add(label);
+}
+
+addAxis('X', 0xd94242, new THREE.Vector3(1, 0, 0));
+addAxis('Y', 0x2b9f54, new THREE.Vector3(0, 1, 0));
+addAxis('Z', 0x2f6fd6, new THREE.Vector3(0, 0, 1));
+
 const contactShadow = new THREE.Mesh(
   new THREE.CircleGeometry(0.95, 32),
   new THREE.MeshBasicMaterial({
@@ -104,7 +147,7 @@ loader.load(
   (gltf) => {
     const shrine = gltf.scene;
     applyBrowserMaterial(shrine);
-    shrine.rotation.set(Math.PI / 2, -0.8, 0);
+    shrine.rotation.set(0.08, -0.8, -0.32);
     frameObject(shrine);
     scene.add(shrine);
     statusEl.textContent = 'Loaded assets/generated/shrine_01_simple_clean.glb';
