@@ -91,6 +91,14 @@ contain background, stairs, trees, and adjacent props. The tradeoff is drift:
 the generated clean image can become prettier but less faithful to the source,
 so every clean image needs human review before 3D generation.
 
+There is also a parallel direct route under investigation:
+
+```text
+object metadata -> reviewed 3D prompt -> prompt-to-3D backend -> cleanup -> browser
+```
+
+See `docs/DIRECT_PROMPT_TO_3D_OPTIONS.md` for local and paid backend options.
+
 ### 1. Parse the scene
 
 ```bash

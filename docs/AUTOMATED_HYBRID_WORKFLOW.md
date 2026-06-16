@@ -11,11 +11,12 @@ at the points where taste and source fidelity matter.
 1. Scan the source image for major objects.
 2. Present the object inventory to the user for confirmation.
 3. Let the user tweak names, priorities, bounding boxes, routes, and omissions.
-4. Generate clean-image prompts for approved objects.
+4. Generate prompts for approved objects.
 5. Present the prompts to the user for confirmation.
-6. Generate clean isolated concept images.
-7. Present the generated images for source-fidelity review.
-8. Pass approved images into image-to-3D backends.
+6. Generate clean isolated concept images, or send the reviewed prompt directly
+   to a prompt-to-3D backend.
+7. Present the generated images or direct meshes for source-fidelity review.
+8. Pass approved images into image-to-3D backends when using the hybrid route.
 9. Clean generated meshes while preserving color.
 10. Present cleaned meshes for review, browser placement, reroute, or rejection.
 
@@ -81,6 +82,7 @@ Route values:
 - `procedural`
 - `direct_crop_to_i23d`
 - `clean_render_then_i23d`
+- `prompt_to_3d_direct`
 - `multiview_then_i23d`
 - `manual_model`
 - `defer`
@@ -155,6 +157,40 @@ Outputs:
 The generated image should be a single object with generous padding and a clean
 silhouette. For image-to-3D, boring clarity is usually better than beautiful
 scene composition.
+
+## Stage 6B: Direct Prompt-To-3D Generation
+
+For some objects, skip the intermediate generated image:
+
+```text
+object metadata -> reviewed prompt -> prompt-to-3D backend -> raw GLB
+```
+
+This route is useful when:
+
+- the object can be described cleanly in text,
+- source-image fidelity is less important than simple browser geometry,
+- the intermediate image step is adding visual drift,
+- a paid text-to-3D API can produce a usable GLB directly,
+- or a local parametric generator can build the asset more cleanly than an AI
+  mesh model.
+
+Route value:
+
+- `prompt_to_3d_direct`
+
+For investigated local and paid options, see
+`docs/DIRECT_PROMPT_TO_3D_OPTIONS.md`.
+
+Suggested outputs:
+
+- `assets/generated/<asset_id>_prompt3d_raw.glb`
+- `assets/generated/<asset_id>_prompt3d_prompt.txt`
+- `assets/generated/<asset_id>_prompt3d_generation_meta.json`
+- `assets/generated/<asset_id>_prompt3d_notes.md`
+
+The same cleanup, color/material preservation, validation, and browser-review
+stages should run after direct prompt-to-3D generation.
 
 ## Stage 7: User Image Review
 
@@ -279,6 +315,9 @@ Review states:
   - prepares review metadata for generated images.
 - `scripts/run_image_to_3d_batch.py`
   - runs approved clean images through a selected backend.
+- `scripts/run_prompt_to_3d_asset.py`
+  - runs approved object metadata prompts directly through a text-to-3D or
+    parametric backend.
 - `scripts/cleanup_glb_asset.py`
   - performs the first browser-oriented cleanup pass while preserving color.
 - `scripts/validate_generated_assets.py`

@@ -84,6 +84,7 @@ python3 scripts/route_assets.py \
 - `procedural`
 - `direct_crop_to_i23d`
 - `clean_render_then_i23d`
+- `prompt_to_3d_direct`
 - `multiview_then_i23d`
 - `manual_model`
 
@@ -240,6 +241,64 @@ Is the asset worth cleaning, or should it be rerouted?
 
 ---
 
+## 4B. `scripts/run_prompt_to_3d_asset.py`
+
+### Purpose
+
+Generate a 3D asset directly from object metadata and a reviewed prompt,
+without first generating a clean intermediate image.
+
+This is a parallel route to the hybrid image-to-3D pipeline. It should be used
+for A/B testing and for objects where text or parametric generation is likely
+to produce cleaner browser geometry than image-to-3D.
+
+### Responsibilities
+
+- read scene parse + routes,
+- find the target asset,
+- build or load a reviewed direct 3D prompt,
+- call a prompt-to-3D or parametric backend,
+- write raw GLB output and prompt metadata,
+- emit metadata for downstream cleanup.
+
+### CLI
+
+```bash
+python3 scripts/run_prompt_to_3d_asset.py \
+  --asset shrine_01 \
+  --scene assets/scene_parse.json \
+  --routes assets/asset_routes.json \
+  --backend stub \
+  --outdir assets/generated
+```
+
+### Suggested backends
+
+- `stub`
+- `parametric`
+- `shap-e`
+- `point-e`
+- `meshy`
+- `tripo`
+- `rodin-fal`
+- `sloyd`
+
+### Outputs
+
+- `assets/generated/shrine_01_prompt3d_raw.glb`
+- `assets/generated/shrine_01_prompt3d_prompt.txt`
+- `assets/generated/shrine_01_prompt3d_generation_meta.json`
+- `assets/generated/shrine_01_prompt3d_notes.md`
+
+For the current backend investigation, see
+`docs/DIRECT_PROMPT_TO_3D_OPTIONS.md`.
+
+### Human review point
+
+Does the direct mesh beat the hybrid image-to-3D result for browser use?
+
+---
+
 ## 5. `scripts/cleanup_glb_asset.py`
 
 ### Purpose
@@ -289,8 +348,9 @@ Blender cleanup is still useful later for deeper work:
 ```text
 parse_scene.py
   -> route_assets.py
-    -> generate_clean_asset_image.py (optional depending on route)
+    -> generate_clean_asset_image.py (optional hybrid route)
       -> run_image_to_3d_asset.py
+    -> run_prompt_to_3d_asset.py (optional direct route)
         -> blender_cleanup.py (future)
           -> browser scene integration
 ```
