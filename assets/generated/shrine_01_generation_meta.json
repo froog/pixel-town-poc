@@ -1,0 +1,16 @@
+{
+  "asset_id": "shrine_01",
+  "asset_name": "shrine",
+  "route": {
+    "asset_id": "shrine_01",
+    "route": "clean_render_then_i23d",
+    "reason": [
+      "hero or prop asset",
+      "benefits from clean silhouette"
+    ]
+  },
+  "mode": "clean-render",
+  "backend": "stub",
+  "status": "stub_only",
+  "next_step": "Replace stub with backend-specific invocation and valid GLB output"
+}

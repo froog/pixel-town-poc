@@ -1,0 +1,11 @@
+{
+  "asset_id": "shrine_01",
+  "backend": "stub",
+  "mode": "clean-render",
+  "views": "single",
+  "background": "transparent",
+  "style": "pixel-friendly",
+  "prompt": "Generate a clean isolated 3D-style concept render of the object 'shrine'. Preserve the look from the source scene. Remove background clutter. Use a transparent background and a pixel-friendly look. Object notes: Traditional shrine/temple on a stone terrace on the far left.",
+  "dry_run": false,
+  "status": "stub_only"
+}

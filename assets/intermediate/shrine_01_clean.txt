@@ -1,0 +1,1 @@
+Placeholder for clean asset image output. Replace with PNG output from a real backend.

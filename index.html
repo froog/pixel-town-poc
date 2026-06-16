@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pixel Town 3D Asset POC</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #071a2b; font-family: system-ui, sans-serif; }
+    #app { width: 100vw; height: 100vh; }
+    #hud {
+      position: fixed; left: 12px; top: 12px; max-width: 430px;
+      color: white; background: rgba(0,0,0,.45); padding: 12px 14px; border-radius: 10px;
+      font-size: 13px; line-height: 1.4; backdrop-filter: blur(4px);
+    }
+    #hud b { color: #9ee8ff; }
+    #hud kbd { background: rgba(255,255,255,.16); padding: 1px 5px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="hud">
+    <b>Pixel Town 3D Asset POC</b><br>
+    Orbit/drag to inspect the procedural world. Scroll to zoom.<br>
+    <kbd>1</kbd> toggles source panorama, <kbd>2</kbd> toggles image billboards, <kbd>3</kbd> toggles proxy GLBs.<br>
+    This is a buildable scaffold: crops and proxy assets are generated automatically, then replaced by real image-to-3D meshes later.
+  </div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

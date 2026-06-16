@@ -1,0 +1,62 @@
+{
+  "source_scene": "/mnt/data/pixel-town-poc/assets/scene_parse.json",
+  "routes": [
+    {
+      "asset_id": "shrine_01",
+      "route": "clean_render_then_i23d",
+      "reason": [
+        "hero or prop asset",
+        "benefits from clean silhouette"
+      ]
+    },
+    {
+      "asset_id": "house_blue_01",
+      "route": "direct_crop_to_i23d",
+      "reason": [
+        "clear enough source crop for baseline"
+      ]
+    },
+    {
+      "asset_id": "park_01",
+      "route": "procedural",
+      "reason": [
+        "simple modular geometry preferred",
+        "better performance",
+        "repeatable"
+      ]
+    },
+    {
+      "asset_id": "station_01",
+      "route": "clean_render_then_i23d",
+      "reason": [
+        "hero or prop asset",
+        "benefits from clean silhouette"
+      ]
+    },
+    {
+      "asset_id": "train_01",
+      "route": "direct_crop_to_i23d",
+      "reason": [
+        "clear enough source crop for baseline"
+      ]
+    },
+    {
+      "asset_id": "utility_poles_01",
+      "route": "procedural",
+      "reason": [
+        "simple modular geometry preferred",
+        "better performance",
+        "repeatable"
+      ]
+    },
+    {
+      "asset_id": "vending_machine_01",
+      "route": "clean_render_then_i23d",
+      "reason": [
+        "hero or prop asset",
+        "benefits from clean silhouette"
+      ]
+    }
+  ],
+  "generator": "stub_router_v1"
+}
