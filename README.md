@@ -123,6 +123,7 @@ Allowed route values are:
 - `procedural`
 - `direct_crop_to_i23d`
 - `clean_render_then_i23d`
+- `prompt_to_3d_direct`
 - `multiview_then_i23d`
 - `manual_model`
 
@@ -215,6 +216,27 @@ The viewer uses CDN-hosted Three.js modules, loads the cleaned shrine GLB,
 enables vertex colors on imported meshes, adds orbit controls, and provides a
 small ground/grid reference. Press `R` in the browser to reset the camera.
 
+### 6. Generate a direct parametric GLB
+
+For simple describable objects, the direct route skips image generation and
+builds a small local GLB from object metadata:
+
+```bash
+python3 scripts/run_prompt_to_3d_asset.py \
+  --asset vending_machine_01 \
+  --scene assets/scene_parse.json \
+  --routes assets/asset_routes.json \
+  --backend parametric \
+  --outdir assets/generated
+```
+
+The current parametric backend writes:
+
+- `assets/generated/<asset_id>_prompt3d_raw.glb`
+- `assets/generated/<asset_id>_prompt3d_prompt.txt`
+- `assets/generated/<asset_id>_prompt3d_generation_meta.json`
+- `assets/generated/<asset_id>_prompt3d_notes.md`
+
 ## Human Checkpoints
 
 Human review should happen at these points:
@@ -247,14 +269,15 @@ Compare:
 
 - direct crop to image-to-3D,
 - clean render to image-to-3D,
+- metadata prompt to parametric GLB,
 - manual or procedural fallback.
 
 ## Near-Term Next Steps
 
 1. Build the generic reviewed-inventory and prompt-manifest flow described in
    `docs/AUTOMATED_HYBRID_WORKFLOW.md`.
-2. Replace the source-crop clean image with a generated isolated asset image.
+2. Add a generic scene-placement manifest so future approved assets can be
+   positioned without hard-coding `shrine_01`.
 3. Add validation so placeholder GLB files cannot be mistaken for production
    assets.
-4. Add a generic scene-placement manifest so future approved assets can be
-   positioned without hard-coding `shrine_01`.
+4. Replace the source-crop clean image with a generated isolated asset image.

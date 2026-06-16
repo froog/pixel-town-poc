@@ -287,23 +287,25 @@ centered origin, game-ready GLB, modest polygon count.
 For paid APIs, keep prompts shorter and more concrete than image-generation
 prompts. Multiple nouns and scene language increase the chance of extra objects.
 
-## Proposed Script Shape
+## Implemented Script Shape
 
-Add a new runner instead of overloading the image-to-3D script too much:
+The first direct runner is available now:
 
 ```bash
 python3 scripts/run_prompt_to_3d_asset.py \
   --asset shrine_01 \
   --scene assets/scene_parse.json \
   --routes assets/asset_routes.json \
-  --backend stub \
+  --backend parametric \
   --outdir assets/generated
 ```
 
-Suggested backend names:
+Implemented backend names:
 
 - `stub`
 - `parametric`
+
+Possible future backend names:
 - `shap-e`
 - `point-e`
 - `meshy`

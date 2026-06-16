@@ -13,6 +13,8 @@ pipeline, with a basic Three.js scene for previewing the cleaned shrine asset.
   a placeholder text artifact, and a source crop PNG for `shrine_01`.
 - `scripts/run_image_to_3d_asset.py` supports both `--backend stub` and a real
   local `--backend tripo` adapter.
+- `scripts/run_prompt_to_3d_asset.py` supports direct metadata prompt-to-3D
+  generation with `--backend stub` and local `--backend parametric`.
 - A first real TripoSR GLB has been generated for `shrine_01`.
 - A second TripoSR GLB has been generated from an AI-generated clean concept
   image for `shrine_01`.
@@ -22,6 +24,8 @@ pipeline, with a basic Three.js scene for previewing the cleaned shrine asset.
   GLBs while preserving vertex colors.
 - `index.html` and `src/main.js` provide a basic Three.js viewer for
   `assets/generated/shrine_01_simple_clean.glb`.
+- Direct parametric GLBs have been generated for `house_blue_01`, `train_01`,
+  `vending_machine_01`, and a shrine baseline.
 - `docs/SCRIPT_INTERFACES.md` describes the expected CLI contracts and data
   flow.
 
@@ -42,6 +46,8 @@ pipeline, with a basic Three.js scene for previewing the cleaned shrine asset.
 - The browser scene is intentionally minimal and currently hard-codes
   `shrine_01_simple_clean.glb`; it does not yet read a generic placement
   manifest.
+- The parametric backend is intentionally simple box/gable geometry. It is a
+  browser-friendly baseline, not a full modelling system.
 
 ## Current Sample Command Sequence
 
@@ -84,14 +90,20 @@ python3 -m http.server 8010
 
 Then open `http://localhost:8010`.
 
+To run the direct local parametric route:
+
+```bash
+python3 scripts/run_prompt_to_3d_asset.py --asset vending_machine_01 --scene assets/scene_parse.json --routes assets/asset_routes.json --backend parametric --outdir assets/generated
+```
+
 ## Recommended Next Work
 
 1. Build the generic reviewed-inventory and prompt-manifest flow described in
    `docs/AUTOMATED_HYBRID_WORKFLOW.md`.
-2. Wire `generate_clean_asset_image.py` to an image-generation backend that uses
-   parsed scene/object context to produce a clean background-free concept image.
-3. Add validation around generated artifacts, especially GLB validity.
-4. Add a generic browser-placement manifest so future approved assets are not
+2. Add a generic browser-placement manifest so future approved assets are not
    hard-coded in `src/main.js`.
+3. Add validation around generated artifacts, especially GLB validity.
+4. Wire `generate_clean_asset_image.py` to an image-generation backend that uses
+   parsed scene/object context to produce a clean background-free concept image.
 5. Decide whether the next milestone is better asset generation or multi-asset
    browser composition.

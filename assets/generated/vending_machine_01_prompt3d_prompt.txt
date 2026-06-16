@@ -1,0 +1,6 @@
+Create a single low-poly browser-game 3D asset.
+Object: vending machine.
+Category: prop.
+Source notes: Blue vending machine near the station..
+Style: clean stylized low-poly, pixel-town compatible, readable silhouette.
+Constraints: single object only, no background, no scene, no people, centered origin, game-ready GLB, modest polygon count.

@@ -1,0 +1,34 @@
+{
+  "asset_id": "shrine_01",
+  "asset_name": "shrine",
+  "route": {
+    "asset_id": "shrine_01",
+    "route": "clean_render_then_i23d",
+    "reason": [
+      "hero or prop asset",
+      "benefits from clean silhouette"
+    ]
+  },
+  "backend": "parametric",
+  "status": "generated",
+  "prompt_path": "assets/generated/shrine_01_prompt3d_prompt.txt",
+  "output": "assets/generated/shrine_01_prompt3d_raw.glb",
+  "backend_meta": {
+    "vertices": 38,
+    "triangles": 56,
+    "primitives": 5,
+    "bounds": {
+      "min": [
+        -0.675,
+        0.0,
+        -0.525
+      ],
+      "max": [
+        0.675,
+        1.395,
+        0.86
+      ]
+    }
+  },
+  "next_step": "Review GLB, then run cleanup/normalisation before browser placement"
+}

@@ -1,0 +1,34 @@
+{
+  "asset_id": "house_blue_01",
+  "asset_name": "blue roof house",
+  "route": {
+    "asset_id": "house_blue_01",
+    "route": "prompt_to_3d_direct",
+    "reason": [
+      "simple describable object",
+      "good candidate for direct parametric or text-to-3D generation"
+    ]
+  },
+  "backend": "parametric",
+  "status": "generated",
+  "prompt_path": "assets/generated/house_blue_01_prompt3d_prompt.txt",
+  "output": "assets/generated/house_blue_01_prompt3d_raw.glb",
+  "backend_meta": {
+    "vertices": 30,
+    "triangles": 44,
+    "primitives": 4,
+    "bounds": {
+      "min": [
+        -0.775,
+        0.0,
+        -0.525
+      ],
+      "max": [
+        0.775,
+        1.645,
+        0.525
+      ]
+    }
+  },
+  "next_step": "Review GLB, then run cleanup/normalisation before browser placement"
+}

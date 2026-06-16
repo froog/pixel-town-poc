@@ -1,0 +1,6 @@
+Create a single low-poly browser-game 3D asset.
+Object: train.
+Category: vehicle.
+Source notes: Green-and-cream local train at the station..
+Style: clean stylized low-poly, pixel-town compatible, readable silhouette.
+Constraints: single object only, no background, no scene, no people, centered origin, game-ready GLB, modest polygon count.

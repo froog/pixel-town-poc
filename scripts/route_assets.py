@@ -15,10 +15,13 @@ def choose_route(obj: dict) -> tuple[str, list[str]]:
 
     if category in {"infrastructure", "environment_chunk"} and name != "vending machine":
         return "procedural", ["simple modular geometry preferred", "better performance", "repeatable"]
+    if name in {"blue roof house", "train", "vending machine"}:
+        return "prompt_to_3d_direct", [
+            "simple describable object",
+            "good candidate for direct parametric or text-to-3D generation",
+        ]
     if name in {"vending machine", "shrine", "station"}:
         return "clean_render_then_i23d", ["hero or prop asset", "benefits from clean silhouette"]
-    if name in {"blue roof house", "train"}:
-        return "direct_crop_to_i23d", ["clear enough source crop for baseline"]
     if complexity == "high" and occlusion == "medium":
         return "clean_render_then_i23d", ["complex asset", "partly occluded"]
     return "manual_model", ["fallback route"]

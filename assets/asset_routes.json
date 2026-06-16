@@ -11,9 +11,10 @@
     },
     {
       "asset_id": "house_blue_01",
-      "route": "direct_crop_to_i23d",
+      "route": "prompt_to_3d_direct",
       "reason": [
-        "clear enough source crop for baseline"
+        "simple describable object",
+        "good candidate for direct parametric or text-to-3D generation"
       ]
     },
     {
@@ -35,9 +36,10 @@
     },
     {
       "asset_id": "train_01",
-      "route": "direct_crop_to_i23d",
+      "route": "prompt_to_3d_direct",
       "reason": [
-        "clear enough source crop for baseline"
+        "simple describable object",
+        "good candidate for direct parametric or text-to-3D generation"
       ]
     },
     {
@@ -51,10 +53,10 @@
     },
     {
       "asset_id": "vending_machine_01",
-      "route": "clean_render_then_i23d",
+      "route": "prompt_to_3d_direct",
       "reason": [
-        "hero or prop asset",
-        "benefits from clean silhouette"
+        "simple describable object",
+        "good candidate for direct parametric or text-to-3D generation"
       ]
     }
   ],

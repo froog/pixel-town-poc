@@ -1,0 +1,6 @@
+Create a single low-poly browser-game 3D asset.
+Object: shrine.
+Category: hero_structure.
+Source notes: Traditional shrine/temple on a stone terrace on the far left..
+Style: clean stylized low-poly, pixel-town compatible, readable silhouette.
+Constraints: single object only, no background, no scene, no people, centered origin, game-ready GLB, modest polygon count.
