@@ -240,20 +240,47 @@ Is the asset worth cleaning, or should it be rerouted?
 
 ---
 
-## 5. Future: `scripts/blender_cleanup.py`
+## 5. `scripts/cleanup_glb_asset.py`
 
 ### Purpose
 
-Standardise and clean raw assets before they enter the scene.
+Standardise and clean raw GLB assets before they enter the browser scene.
+
+This lightweight cleanup script is available now and does not require Blender.
+It is intended as the first pass before heavier manual or Blender cleanup.
+
+### CLI
+
+```bash
+python3 scripts/cleanup_glb_asset.py \
+  --input assets/generated/shrine_01_simple_raw.glb \
+  --out assets/generated/shrine_01_simple_clean.glb \
+  --meta assets/generated/shrine_01_simple_cleanup_meta.json \
+  --min-faces 128 \
+  --target-height 2.0 \
+  --up-axis y
+```
 
 ### Tasks
 
-- set origin,
-- apply transforms,
-- decimate,
-- simplify materials,
-- resize textures,
-- export `.glb`.
+- remove tiny loose mesh components,
+- preserve TripoSR vertex colors,
+- center the asset horizontally,
+- set the base on the ground plane,
+- scale to a target height,
+- export cleaned `.glb`,
+- write cleanup metadata.
+
+### Future: `scripts/blender_cleanup.py`
+
+Blender cleanup is still useful later for deeper work:
+
+- decimation and retopology,
+- material simplification,
+- texture baking,
+- manual orientation fixes,
+- origin/pivot editing,
+- preview renders.
 
 ---
 

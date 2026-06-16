@@ -180,11 +180,12 @@ next quality lever.
 Current best browser-asset candidate:
 
 - `assets/intermediate/shrine_01_simple_concept.png`
-- `assets/generated/shrine_01_simple_raw.glb`
+- `assets/generated/shrine_01_simple_clean.glb`
 - `assets/generated/shrine_01_simple_preview.png`
 
 This simpler concept is less ornate and more source-faithful than the first
-generated concept, though it still needs cleanup before browser placement.
+generated concept. The cleaned GLB is grounded, centered, scaled, and preserves
+TripoSR vertex colors.
 
 ## Human Checkpoints
 
@@ -224,7 +225,7 @@ Compare:
 
 1. Build the generic reviewed-inventory and prompt-manifest flow described in
    `docs/AUTOMATED_HYBRID_WORKFLOW.md`.
-2. Try cleanup and browser placement with `shrine_01_simple_raw.glb`.
+2. Try browser placement with `shrine_01_simple_clean.glb`.
 3. Decide whether to rebuild the browser viewer or keep focusing on the asset
    pipeline first.
 4. Replace the source-crop clean image with a generated isolated asset image.

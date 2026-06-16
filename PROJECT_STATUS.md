@@ -18,6 +18,8 @@ pipeline.
   image for `shrine_01`.
 - A third, simpler browser-asset-oriented concept image has also been generated
   and passed through TripoSR as `shrine_01_simple`.
+- `scripts/cleanup_glb_asset.py` performs a first cleanup pass for generated
+  GLBs while preserving vertex colors.
 - `docs/SCRIPT_INTERFACES.md` describes the expected CLI contracts and data
   flow.
 
@@ -30,6 +32,8 @@ pipeline.
 - The simpler concept is the best current input for browser asset work: clearer,
   less ornate, and more source-faithful, though TripoSR still only reconstructs
   the roof/body partially from a single view.
+- `assets/generated/shrine_01_simple_clean.glb` is grounded, centered, scaled to
+  2.0 units tall, and keeps the TripoSR vertex colors.
 - The clean asset generator does not call an image backend yet.
 - `assets/generated/shrine_01_raw.glb` is valid when generated with
   `--backend tripo`, but still needs cleanup and quality review.
@@ -63,11 +67,17 @@ To run the simpler browser-asset concept variant:
 python3 scripts/run_image_to_3d_asset.py --asset shrine_01 --scene assets/scene_parse.json --routes assets/asset_routes.json --mode clean-render --backend tripo --outdir assets/generated --input-image assets/intermediate/shrine_01_simple_concept.png --output-suffix _simple --tripo-repo /tmp/triposr-run --tripo-python /tmp/triposr-venv/bin/python --device cpu --mc-resolution 128 --chunk-size 4096
 ```
 
+To clean the simple variant for browser placement:
+
+```bash
+/tmp/triposr-venv/bin/python scripts/cleanup_glb_asset.py --input assets/generated/shrine_01_simple_raw.glb --out assets/generated/shrine_01_simple_clean.glb --meta assets/generated/shrine_01_simple_cleanup_meta.json --min-faces 128 --target-height 2.0 --up-axis y
+```
+
 ## Recommended Next Work
 
 1. Build the generic reviewed-inventory and prompt-manifest flow described in
    `docs/AUTOMATED_HYBRID_WORKFLOW.md`.
-2. Try cleanup/browser placement with `assets/generated/shrine_01_simple_raw.glb`.
+2. Try browser placement with `assets/generated/shrine_01_simple_clean.glb`.
 3. Wire `generate_clean_asset_image.py` to an image-generation backend that uses
    parsed scene/object context to produce a clean background-free concept image.
 4. Add validation around generated artifacts, especially GLB validity.

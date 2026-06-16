@@ -111,6 +111,20 @@ asset render.
   readable, and less ornate. The mesh still shows single-view reconstruction
   limits, especially around the body and back side.
 
+## Cleanup And Color
+
+- TripoSR outputs vertex colors; the mesh is already colored.
+- `scripts/cleanup_glb_asset.py` removes tiny loose components, preserves vertex
+  colors, centers the model, grounds it at Y=0, and scales it.
+- Cleaned output: `assets/generated/shrine_01_simple_clean.glb`.
+- Cleanup metadata: `assets/generated/shrine_01_simple_cleanup_meta.json`.
+- Colored preview: `assets/generated/shrine_01_simple_clean_preview.png`.
+- The cleaned model has one kept component, 24,711 vertices, 49,426 faces, and
+  vertex colors preserved.
+
+For browser rendering, load the GLB with vertex colors enabled and use enough
+ambient/hemisphere light so the colors are visible.
+
 ## Implemented Now
 
 - Source panorama stored at `assets/source/panorama.png`.
@@ -131,7 +145,7 @@ asset render.
 
 1. Build reviewed inventory and prompt manifest files so the workflow is not
    shrine-specific.
-2. Try cleanup and browser placement with `shrine_01_simple_raw.glb`.
+2. Try browser placement with `shrine_01_simple_clean.glb`.
 3. Wire a real image-generation backend into `generate_clean_asset_image.py`.
 4. Rerun TripoSR at higher resolution and compare mesh quality.
 5. Add a cleanup script for scale, origin, orientation, and material
