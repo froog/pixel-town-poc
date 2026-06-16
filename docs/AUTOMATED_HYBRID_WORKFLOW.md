@@ -16,7 +16,8 @@ at the points where taste and source fidelity matter.
 6. Generate clean isolated concept images.
 7. Present the generated images for source-fidelity review.
 8. Pass approved images into image-to-3D backends.
-9. Present generated meshes for review, cleanup, reroute, or rejection.
+9. Clean generated meshes while preserving color.
+10. Present cleaned meshes for review, browser placement, reroute, or rejection.
 
 ## Stage 1: Scene Scan
 
@@ -193,9 +194,56 @@ Outputs:
 The runner should support batch mode eventually, but one asset at a time is
 better until validation and review are solid.
 
-## Stage 9: Mesh Review And Cleanup
+## Stage 9: Cleanup And Color Preservation
 
-Before world placement, each mesh needs review.
+Input:
+
+- raw generated GLB,
+- generation metadata,
+- target browser scale/orientation settings.
+
+Outputs:
+
+- `assets/generated/<asset_id>_clean.glb`
+- `assets/generated/<asset_id>_cleanup_meta.json`
+- `assets/generated/<asset_id>_clean_preview.png`
+
+The first cleanup pass should be mechanical and repeatable:
+
+- remove tiny loose mesh components,
+- preserve vertex colors or textures from the image-to-3D backend,
+- center the model horizontally,
+- ground the base at the world up-axis zero plane,
+- scale to a target browser size,
+- write mesh counts, bounds, components, and color-preservation status.
+
+Current script:
+
+```bash
+python3 scripts/cleanup_glb_asset.py \
+  --input assets/generated/<asset_id>_raw.glb \
+  --out assets/generated/<asset_id>_clean.glb \
+  --meta assets/generated/<asset_id>_cleanup_meta.json \
+  --min-faces 128 \
+  --target-height 2.0 \
+  --up-axis y
+```
+
+Color path:
+
+- TripoSR GLBs can contain vertex colors.
+- Cleanup must preserve `ColorVisuals`/vertex colors by default.
+- Browser rendering must enable vertex colors on loaded materials.
+- Use ambient or hemisphere light so vertex colors read clearly.
+- If a backend outputs textures instead of vertex colors, cleanup should preserve
+  texture files or bake them into a browser-friendly material.
+
+For browser integration, treat the cleaned GLB as the asset source of truth.
+Raw GLBs are diagnostic artifacts.
+
+## Stage 10: Mesh Review And Browser Readiness
+
+Before world placement, each cleaned mesh needs review.
 
 Review questions:
 
@@ -204,11 +252,18 @@ Review questions:
 - Is mesh density acceptable?
 - Are textures/materials usable for the intended style?
 - Should it be cleaned, regenerated, rerouted, or rejected?
+- Do vertex colors or textures render correctly in the browser?
+- Is the asset lightweight enough for repeated use?
 
-Future cleanup output:
+Review states:
 
-- `assets/generated/<asset_id>_clean.glb`
-- `assets/generated/<asset_id>_cleanup_meta.json`
+- `approved_for_browser`
+- `needs_cleanup`
+- `needs_decimation`
+- `needs_color_fix`
+- `needs_regeneration`
+- `reroute_manual`
+- `rejected`
 
 ## Suggested Future Scripts
 
@@ -224,6 +279,8 @@ Future cleanup output:
   - prepares review metadata for generated images.
 - `scripts/run_image_to_3d_batch.py`
   - runs approved clean images through a selected backend.
+- `scripts/cleanup_glb_asset.py`
+  - performs the first browser-oriented cleanup pass while preserving color.
 - `scripts/validate_generated_assets.py`
   - checks GLB validity, mesh counts, file sizes, and required metadata.
 
@@ -236,6 +293,8 @@ Automate the mechanical parts:
 - prompt drafting,
 - image generation,
 - backend invocation,
+- mesh cleanup,
+- color preservation checks,
 - metadata writing,
 - validation.
 
