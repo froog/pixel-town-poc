@@ -5,25 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pixel Town 3D Asset POC</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #071a2b; font-family: system-ui, sans-serif; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #87d7f4; font-family: system-ui, sans-serif; }
     #app { width: 100vw; height: 100vh; }
     #hud {
-      position: fixed; left: 12px; top: 12px; max-width: 430px;
-      color: white; background: rgba(0,0,0,.45); padding: 12px 14px; border-radius: 10px;
-      font-size: 13px; line-height: 1.4; backdrop-filter: blur(4px);
+      position: fixed; left: 12px; top: 12px; max-width: 380px;
+      color: #10212e; background: rgba(255,255,255,.78); padding: 10px 12px; border-radius: 8px;
+      font-size: 13px; line-height: 1.35; backdrop-filter: blur(6px);
+      box-shadow: 0 8px 24px rgba(18, 52, 67, .16);
     }
-    #hud b { color: #9ee8ff; }
-    #hud kbd { background: rgba(255,255,255,.16); padding: 1px 5px; border-radius: 4px; }
+    #hud b { color: #0a5f86; }
+    #hud kbd { background: rgba(16,33,46,.10); padding: 1px 5px; border-radius: 4px; }
+    #status { margin-top: 6px; color: #4a6575; }
   </style>
 </head>
 <body>
   <div id="app"></div>
   <div id="hud">
-    <b>Pixel Town 3D Asset POC</b><br>
-    Orbit/drag to inspect the procedural world. Scroll to zoom.<br>
-    <kbd>1</kbd> toggles source panorama, <kbd>2</kbd> toggles image billboards, <kbd>3</kbd> toggles proxy GLBs.<br>
-    This is a buildable scaffold: crops and proxy assets are generated automatically, then replaced by real image-to-3D meshes later.
+    <b>Pixel Town Shrine Asset</b><br>
+    Drag to orbit. Scroll to zoom. Press <kbd>R</kbd> to reset the camera.
+    <div id="status">Loading cleaned GLB...</div>
   </div>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>

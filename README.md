@@ -4,9 +4,10 @@ This project is a proof of concept for turning a generated pixel-art seaside
 town panorama into a stylised 3D world through a staged, testable asset
 pipeline.
 
-The current checkout is an **automation scaffold**, not yet a complete browser
-world. It focuses on scene parsing, asset routing, clean intermediate asset
-generation, and stubbed image-to-3D output for one asset at a time.
+The current checkout is an **automation scaffold plus a basic browser scene**,
+not yet a complete browser world. It focuses on scene parsing, asset routing,
+clean intermediate asset generation, cleanup, and loading one approved asset at
+a time into Three.js.
 
 The project direction is deliberately hybrid:
 
@@ -14,8 +15,8 @@ The project direction is deliberately hybrid:
 - parse the scene into candidate objects,
 - route each object to an appropriate generation path,
 - generate or model assets one-by-one,
-- clean and normalise assets later,
-- place approved assets into a browser-rendered scene in a future iteration.
+- clean and normalise assets,
+- place approved assets into a browser-rendered scene.
 
 The goal is not a single-shot conversion of one image into a perfect 3D scene.
 The goal is a pragmatic workflow that can be reviewed, tested, and improved in
@@ -45,11 +46,14 @@ pixel-town-poc/
     route_assets.py
     generate_clean_asset_image.py
     run_image_to_3d_asset.py
+    cleanup_glb_asset.py
+  src/
+    main.js
 ```
 
-`index.html` is currently only a legacy browser shell. It references
-`./src/main.js`, but `src/main.js` is not present yet, so the browser viewer is
-not expected to run in this checkout.
+`index.html` now loads a small Three.js viewer from `src/main.js`. Serve the
+folder over HTTP and open the local URL in a browser to inspect the cleaned
+shrine asset.
 
 ## Implemented Now
 
@@ -59,16 +63,16 @@ not expected to run in this checkout.
   text artifact, and can write a real source crop PNG.
 - Real TripoSR backend hook for `scripts/run_image_to_3d_asset.py`.
 - Sample TripoSR-generated outputs for `shrine_01`.
+- Cleanup/normalisation for generated GLBs while preserving vertex colors.
+- Basic Three.js scene that loads `assets/generated/shrine_01_simple_clean.glb`.
 - Script interface documentation in `docs/SCRIPT_INTERFACES.md`.
 
 ## Not Implemented Yet
 
 - Real VLM scene parsing.
 - Real image generation for clean intermediate asset images.
-- Real image-to-3D backend invocation.
-- Valid generated GLB geometry.
-- Blender cleanup and normalisation.
-- Browser scene implementation under `src/main.js`.
+- Blender-grade cleanup, retopology, or decimation.
+- Multi-asset scene composition.
 - Production-quality clean asset generation.
 
 ## Recommended Hybrid Pipeline
@@ -187,6 +191,22 @@ This simpler concept is less ornate and more source-faithful than the first
 generated concept. The cleaned GLB is grounded, centered, scaled, and preserves
 TripoSR vertex colors.
 
+### 5. Preview in Three.js
+
+```bash
+python3 -m http.server 8010
+```
+
+Then open:
+
+```text
+http://localhost:8010
+```
+
+The viewer uses CDN-hosted Three.js modules, loads the cleaned shrine GLB,
+enables vertex colors on imported meshes, adds orbit controls, and provides a
+small ground/grid reference. Press `R` in the browser to reset the camera.
+
 ## Human Checkpoints
 
 Human review should happen at these points:
@@ -200,7 +220,7 @@ Human review should happen at these points:
 4. Post-3D review: inspect silhouette, mesh quality, scale, and style once a
    real backend is connected.
 5. In-world review: inspect whether approved assets feel correct in the browser
-   scene once the viewer exists.
+   scene.
 
 Future automation should keep these as explicit gates rather than silent
 decisions: confirm the object inventory, confirm generated prompts, approve
@@ -225,10 +245,8 @@ Compare:
 
 1. Build the generic reviewed-inventory and prompt-manifest flow described in
    `docs/AUTOMATED_HYBRID_WORKFLOW.md`.
-2. Try browser placement with `shrine_01_simple_clean.glb`.
-3. Decide whether to rebuild the browser viewer or keep focusing on the asset
-   pipeline first.
-4. Replace the source-crop clean image with a generated isolated asset image.
-5. Add cleanup/normalisation for the TripoSR GLB.
-6. Add validation so placeholder GLB files cannot be mistaken for production
+2. Replace the source-crop clean image with a generated isolated asset image.
+3. Add validation so placeholder GLB files cannot be mistaken for production
    assets.
+4. Add a generic scene-placement manifest so future approved assets can be
+   positioned without hard-coding `shrine_01`.
