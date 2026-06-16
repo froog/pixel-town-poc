@@ -6,6 +6,15 @@
   "background": "transparent",
   "style": "pixel-friendly",
   "prompt": "Generate a clean isolated 3D-style concept render of the object 'shrine'. Preserve the look from the source scene. Remove background clutter. Use a transparent background and a pixel-friendly look. Object notes: Traditional shrine/temple on a stone terrace on the far left.",
+  "source_image": "assets/source/panorama.png",
+  "source_bbox_pixels": [
+    0,
+    77,
+    218,
+    281
+  ],
+  "image_output": "assets/intermediate/shrine_01_clean.png",
+  "artifact_status": "source_crop_sips",
   "dry_run": false,
-  "status": "stub_only"
+  "status": "stub_crop_only"
 }

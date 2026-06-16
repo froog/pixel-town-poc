@@ -1,1 +1,1 @@
-Placeholder for clean asset image output. Replace with PNG output from a real backend.
+Placeholder clean-render request. Current stub also writes a source crop PNG when image tools are available.

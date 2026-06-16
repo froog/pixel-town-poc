@@ -10,7 +10,14 @@
     ]
   },
   "mode": "clean-render",
-  "backend": "stub",
-  "status": "stub_only",
-  "next_step": "Replace stub with backend-specific invocation and valid GLB output"
+  "backend": "tripo",
+  "status": "generated",
+  "backend_meta": {
+    "input_image": "assets/intermediate/shrine_01_clean.png",
+    "tripo_repo": "/tmp/triposr-run",
+    "device": "cpu",
+    "mc_resolution": 128,
+    "chunk_size": 4096
+  },
+  "next_step": "Review mesh quality, then run cleanup/normalisation before world integration"
 }

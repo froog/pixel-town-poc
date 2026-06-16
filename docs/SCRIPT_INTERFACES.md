@@ -14,7 +14,7 @@ Parse the source panorama into a structured object inventory.
 
 ### Responsibilities
 
-- accept a source image,
+- accept and validate a source image,
 - optionally accept a crop config or prompt file,
 - produce a machine-readable list of objects,
 - attach metadata useful for routing and world reconstruction.
@@ -196,11 +196,12 @@ python3 scripts/run_image_to_3d_asset.py \
 ### Outputs
 
 - `assets/generated/shrine_01_raw.glb`
+- `assets/generated/shrine_01_raw_input.png` when the backend emits a processed input
 - `assets/generated/shrine_01_generation_meta.json`
 - `assets/generated/shrine_01_notes.md`
 
-The current `stub` backend writes a placeholder byte file at the `.glb` path.
-It is not a valid model until a real backend or manual export replaces it.
+The `stub` backend writes a placeholder byte file at the `.glb` path. The
+`tripo` backend can call a local TripoSR checkout and write a valid GLB.
 
 ### Human review point
 

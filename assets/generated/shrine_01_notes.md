@@ -2,6 +2,7 @@
 
 - Name: shrine
 - Mode: clean-render
-- Backend: stub
+- Backend: tripo
 - Route recommendation: clean_render_then_i23d
-- Stub output only. Replace with real backend integration.
+- Status: generated
+- Next step: Review mesh quality, then run cleanup/normalisation before world integration

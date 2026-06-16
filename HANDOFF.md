@@ -21,13 +21,18 @@ pixel-town-poc/
     generate_clean_asset_image.py
     run_image_to_3d_asset.py
   assets/
+    source/
+      panorama.png
     scene_parse.json
     asset_routes.json
     intermediate/
+      shrine_01_clean.png
       shrine_01_clean.txt
       shrine_01_clean_meta.json
     generated/
       shrine_01_raw.glb
+      shrine_01_raw_input.png
+      shrine_01_preview.png
       shrine_01_generation_meta.json
       shrine_01_notes.md
   docs/
@@ -66,8 +71,7 @@ python3 scripts/run_image_to_3d_asset.py \
   --outdir assets/generated
 ```
 
-The parser currently records the `--image` path but does not open or validate
-the image file.
+The parser validates the source image and emits pixel-space bounding boxes.
 
 ## Implemented Scripts
 
@@ -101,24 +105,29 @@ Output: `assets/asset_routes.json`.
 
 Builds the expected clean-render prompt metadata for one asset.
 
-Current stub outputs:
+Current outputs:
 
+- `assets/intermediate/shrine_01_clean.png`
 - `assets/intermediate/shrine_01_clean.txt`
 - `assets/intermediate/shrine_01_clean_meta.json`
 
-The `.txt` file is a placeholder for future PNG output.
+The PNG is currently a source crop, not a generated isolated clean render.
 
 ### `scripts/run_image_to_3d_asset.py`
 
-Builds placeholder image-to-3D outputs for one asset.
+Builds image-to-3D outputs for one asset. It supports `--backend stub` and a
+local TripoSR adapter via `--backend tripo`.
 
-Current stub outputs:
+Current TripoSR outputs:
 
 - `assets/generated/shrine_01_raw.glb`
+- `assets/generated/shrine_01_raw_input.png`
+- `assets/generated/shrine_01_preview.png`
 - `assets/generated/shrine_01_generation_meta.json`
 - `assets/generated/shrine_01_notes.md`
 
-The `.glb` file is not a valid model yet; it is a placeholder artifact.
+The current TripoSR GLB is valid but rough. It mostly captures the shrine roof
+mass from the crop and needs better input isolation plus cleanup.
 
 ## Design Direction
 
@@ -154,11 +163,11 @@ Suggested first asset tests:
 
 ## Recommended Next Technical Iteration
 
-1. Add or restore `assets/source/panorama.png`.
+1. Generate or manually create a cleaner isolated shrine input image.
 2. Add validation that distinguishes placeholder GLB files from valid GLB
    assets.
-3. Connect one real clean-image backend while preserving `--backend stub`.
-4. Connect one real image-to-3D backend while preserving `--backend stub`.
+3. Connect one real clean-image backend while preserving the crop fallback.
+4. Add cleanup and normalisation for the TripoSR output.
 5. Rebuild or restore the Three.js viewer under `src/main.js`.
 
 ## Risks
