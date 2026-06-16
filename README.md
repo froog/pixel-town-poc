@@ -1,149 +1,127 @@
-# Pixel Town 3D Asset Proof of Concept
+# Pixel Town 3D Asset Pipeline POC
 
-This project is a proof of concept for turning the generated pixel-art seaside panorama into a stylised 3D world.
+This project is a proof of concept for turning a generated pixel-art seaside
+town panorama into a stylised 3D world through a staged, testable asset
+pipeline.
 
-The current direction is a **hybrid asset pipeline**:
+The current checkout is an **automation scaffold**, not yet a complete browser
+world. It focuses on scene parsing, asset routing, clean intermediate asset
+generation, and stubbed image-to-3D output for one asset at a time.
 
-- use the panorama as source art and scene/layout reference,
+The project direction is deliberately hybrid:
+
+- use the panorama as source art and layout reference,
 - parse the scene into candidate objects,
-- route each object to the most appropriate asset-generation path,
+- route each object to an appropriate generation path,
 - generate or model assets one-by-one,
-- clean and normalise them,
-- place them back into a browser-rendered scene.
+- clean and normalise assets later,
+- place approved assets into a browser-rendered scene in a future iteration.
 
-The goal is **not** to do a single-shot “convert one image into a whole perfect 3D world.”
-Instead, the goal is to build a pragmatic, testable, repeatable workflow.
+The goal is not a single-shot conversion of one image into a perfect 3D scene.
+The goal is a pragmatic workflow that can be reviewed, tested, and improved in
+small steps.
 
----
+## Current Repository Shape
 
-## Current project status
+```text
+pixel-town-poc/
+  index.html
+  assets/
+    scene_parse.json
+    asset_routes.json
+    intermediate/
+      shrine_01_clean.txt
+      shrine_01_clean_meta.json
+    generated/
+      shrine_01_raw.glb
+      shrine_01_generation_meta.json
+      shrine_01_notes.md
+  docs/
+    SCRIPT_INTERFACES.md
+    Pixel_Town_3D_POC_Handoff.docx
+  scripts/
+    parse_scene.py
+    route_assets.py
+    generate_clean_asset_image.py
+    run_image_to_3d_asset.py
+```
 
-Current docs in this folder now focus on:
+`index.html` is currently only a legacy browser shell. It references
+`./src/main.js`, but `src/main.js` is not present yet, so the browser viewer is
+not expected to run in this checkout.
 
-1. documenting the recommended hybrid pipeline,
-2. defining decision points for asset routing,
-3. scaffolding the next batch of scripts,
-4. keeping the project easy to hand off to Codex or another coding agent.
+## Implemented Now
 
-Core docs:
+- Stub scene parser that emits a starter object inventory.
+- Stub asset router that assigns each object to a generation strategy.
+- Stub clean-asset-image generator that writes prompt metadata and a placeholder
+  text artifact.
+- Stub image-to-3D runner that writes placeholder GLB bytes, generation
+  metadata, and review notes.
+- Sample generated outputs for `shrine_01`.
+- Script interface documentation in `docs/SCRIPT_INTERFACES.md`.
 
-- `HANDOFF.md`
-- `PROJECT_STATUS.md`
-- `docs/Pixel_Town_3D_POC_Handoff.md`
-- `docs/PIPELINE_OPTIONS.md`
-- `docs/SCRIPT_INTERFACES.md`
+## Not Implemented Yet
 
----
+- Real VLM scene parsing.
+- Real image generation for clean intermediate asset images.
+- Real image-to-3D backend invocation.
+- Valid generated GLB geometry.
+- Blender cleanup and normalisation.
+- Browser scene implementation under `src/main.js`.
+- Source panorama and crop-generation assets in this checkout.
 
-## Recommended hybrid pipeline
-
-The current recommended pipeline is:
-
-### Stage 1 — Source art and scene understanding
-
-- use the latest panorama as source art,
-- parse the scene with a VLM or structured prompt,
-- generate an object inventory,
-- record object names, categories, approximate locations, and priority.
-
-### Stage 2 — Asset routing
-
-For each object, choose one of these paths:
-
-- **procedural**
-  - roads, wires, poles, walls, stairs, ground, ocean planes, simple park pieces.
-- **direct crop -> image-to-3D**
-  - when the source crop is already clear and isolated enough.
-- **clean render -> image-to-3D**
-  - when the object is cluttered, partly occluded, or likely to benefit from a synthetic isolated asset image first.
-- **multi-view generation -> image-to-3D**
-  - for more difficult hero assets where geometry quality matters.
-- **manual model / Blender-assisted**
-  - for assets that remain poor after AI generation or require stronger control.
-
-### Stage 3 — Asset cleanup
-
-- normalise scale,
-- fix origin,
-- simplify topology,
-- simplify materials/textures,
-- export `.glb`,
-- generate preview renders.
-
-### Stage 4 — World integration
-
-- place assets into a layout JSON,
-- render in a browser engine,
-- iterate one asset at a time.
-
----
-
-## Why the “clean render -> image-to-3D” path matters
-
-A key option now documented in the project is:
-
-1. parse scene,
-2. identify object,
-3. generate a clean isolated “3D concept render” of the object,
-4. send that into an image-to-3D model.
-
-This is often better than direct crop -> image-to-3D when:
-
-- the original crop contains too much background,
-- the object silhouette is unclear,
-- the source view is awkward,
-- the object is partly hidden,
-- we want more deliberate control over proportions or style.
-
-But it also introduces drift risk, so it should be a **selective branch**, not the only path.
-
----
-
-## Next scripts to implement
-
-The following script interfaces are now scaffolded:
-
-- `scripts/parse_scene.py`
-- `scripts/route_assets.py`
-- `scripts/generate_clean_asset_image.py`
-- `scripts/run_image_to_3d_asset.py`
-
-See `docs/SCRIPT_INTERFACES.md` for details.
-
----
-
-## Suggested workflow
+## Recommended Hybrid Pipeline
 
 ### 1. Parse the scene
 
 ```bash
-python scripts/parse_scene.py \
+python3 scripts/parse_scene.py \
   --image assets/source/panorama.png \
   --out assets/scene_parse.json
 ```
 
+The `--image` path is recorded in metadata only by the current stub; the file is
+not opened yet.
+
 ### 2. Route assets
 
 ```bash
-python scripts/route_assets.py \
+python3 scripts/route_assets.py \
   --scene assets/scene_parse.json \
   --out assets/asset_routes.json
 ```
 
-### 3. Generate a clean intermediate asset image (optional)
+Allowed route values are:
+
+- `procedural`
+- `direct_crop_to_i23d`
+- `clean_render_then_i23d`
+- `multiview_then_i23d`
+- `manual_model`
+
+### 3. Generate a clean intermediate asset image
 
 ```bash
-python scripts/generate_clean_asset_image.py \
+python3 scripts/generate_clean_asset_image.py \
   --asset shrine_01 \
   --scene assets/scene_parse.json \
   --mode clean-render \
   --outdir assets/intermediate
 ```
 
+The current implementation writes:
+
+- `assets/intermediate/shrine_01_clean.txt`
+- `assets/intermediate/shrine_01_clean_meta.json`
+
+A real backend should eventually replace the `.txt` placeholder with PNG or
+multi-view image output.
+
 ### 4. Run image-to-3D
 
 ```bash
-python scripts/run_image_to_3d_asset.py \
+python3 scripts/run_image_to_3d_asset.py \
   --asset shrine_01 \
   --scene assets/scene_parse.json \
   --routes assets/asset_routes.json \
@@ -152,32 +130,51 @@ python scripts/run_image_to_3d_asset.py \
   --outdir assets/generated
 ```
 
----
+The current implementation writes:
 
-## Human checkpoints
+- `assets/generated/shrine_01_raw.glb`
+- `assets/generated/shrine_01_generation_meta.json`
+- `assets/generated/shrine_01_notes.md`
+
+The GLB is a placeholder byte file, not a valid 3D model.
+
+## Human Checkpoints
 
 Human review should happen at these points:
 
-1. **scene inventory review** — check whether the parser found the right objects.
-2. **routing review** — confirm which assets should be procedural vs AI-generated.
-3. **clean intermediate review** — inspect whether an isolated image still matches the source.
-4. **post-3D review** — inspect silhouette, mesh quality, and style.
-5. **in-world review** — inspect whether the asset feels correct in the browser scene.
+1. Scene inventory review: confirm object names, categories, priorities, and
+   approximate bounding boxes.
+2. Routing review: confirm which objects should be procedural, AI-generated, or
+   manually modelled.
+3. Clean intermediate review: decide whether generated isolated images still
+   match the source object.
+4. Post-3D review: inspect silhouette, mesh quality, scale, and style once a
+   real backend is connected.
+5. In-world review: inspect whether approved assets feel correct in the browser
+   scene once the viewer exists.
 
----
+## Recommended First Experiments
 
-## Recommended first experiments
+Use these assets for early A/B testing:
 
-Use three assets for A/B testing:
-
-- shrine
-- blue-roof house
-- vending machine
+- `shrine_01`
+- `house_blue_01`
+- `vending_machine_01`
 
 Compare:
 
-- direct crop -> image-to-3D
-- clean render -> image-to-3D
-- manual/procedural fallback
+- direct crop to image-to-3D,
+- clean render to image-to-3D,
+- manual or procedural fallback.
 
-This should quickly show whether the intermediate clean-render step is worth the added complexity.
+## Near-Term Next Steps
+
+1. Add or restore the source panorama under `assets/source/`.
+2. Decide whether to rebuild the browser viewer or keep focusing on the asset
+   pipeline first.
+3. Replace `generate_clean_asset_image.py` stub output with a real PNG-producing
+   backend.
+4. Replace `run_image_to_3d_asset.py` stub output with a backend adapter while
+   keeping `--backend stub` for tests.
+5. Add validation so placeholder GLB files cannot be mistaken for production
+   assets.

@@ -22,7 +22,7 @@ Parse the source panorama into a structured object inventory.
 ### CLI
 
 ```bash
-python scripts/parse_scene.py \
+python3 scripts/parse_scene.py \
   --image assets/source/panorama.png \
   --out assets/scene_parse.json
 ```
@@ -71,7 +71,7 @@ Decide which generation strategy each object should use.
 ### CLI
 
 ```bash
-python scripts/route_assets.py \
+python3 scripts/route_assets.py \
   --scene assets/scene_parse.json \
   --out assets/asset_routes.json
 ```
@@ -126,7 +126,7 @@ Generate a clean isolated object image to use as an image-to-3D input.
 ### CLI
 
 ```bash
-python scripts/generate_clean_asset_image.py \
+python3 scripts/generate_clean_asset_image.py \
   --asset shrine_01 \
   --scene assets/scene_parse.json \
   --mode clean-render \
@@ -143,7 +143,8 @@ python scripts/generate_clean_asset_image.py \
 
 ### Outputs
 
-- `assets/intermediate/shrine_01_clean.png`
+- Current stub output: `assets/intermediate/shrine_01_clean.txt`
+- Future real-backend output: `assets/intermediate/shrine_01_clean.png`
 - `assets/intermediate/shrine_01_clean_meta.json`
 
 ### Human review point
@@ -169,7 +170,7 @@ Run the selected 2D input through an image-to-3D pipeline.
 ### CLI
 
 ```bash
-python scripts/run_image_to_3d_asset.py \
+python3 scripts/run_image_to_3d_asset.py \
   --asset shrine_01 \
   --scene assets/scene_parse.json \
   --routes assets/asset_routes.json \
@@ -197,6 +198,9 @@ python scripts/run_image_to_3d_asset.py \
 - `assets/generated/shrine_01_raw.glb`
 - `assets/generated/shrine_01_generation_meta.json`
 - `assets/generated/shrine_01_notes.md`
+
+The current `stub` backend writes a placeholder byte file at the `.glb` path.
+It is not a valid model until a real backend or manual export replaces it.
 
 ### Human review point
 

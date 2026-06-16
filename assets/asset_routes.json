@@ -1,5 +1,5 @@
 {
-  "source_scene": "/mnt/data/pixel-town-poc/assets/scene_parse.json",
+  "source_scene": "assets/scene_parse.json",
   "routes": [
     {
       "asset_id": "shrine_01",
