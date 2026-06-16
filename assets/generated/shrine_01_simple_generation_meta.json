@@ -1,0 +1,23 @@
+{
+  "asset_id": "shrine_01",
+  "asset_name": "shrine",
+  "route": {
+    "asset_id": "shrine_01",
+    "route": "clean_render_then_i23d",
+    "reason": [
+      "hero or prop asset",
+      "benefits from clean silhouette"
+    ]
+  },
+  "mode": "clean-render",
+  "backend": "tripo",
+  "status": "generated",
+  "backend_meta": {
+    "input_image": "assets/intermediate/shrine_01_simple_concept.png",
+    "tripo_repo": "/tmp/triposr-run",
+    "device": "cpu",
+    "mc_resolution": 128,
+    "chunk_size": 4096
+  },
+  "next_step": "Review mesh quality, then run cleanup/normalisation before world integration"
+}

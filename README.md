@@ -177,6 +177,15 @@ Current first-run result: TripoSR produces a valid GLB for `shrine_01`, but the
 mesh mostly captures the shrine roof mass. A cleaner isolated input image is the
 next quality lever.
 
+Current best browser-asset candidate:
+
+- `assets/intermediate/shrine_01_simple_concept.png`
+- `assets/generated/shrine_01_simple_raw.glb`
+- `assets/generated/shrine_01_simple_preview.png`
+
+This simpler concept is less ornate and more source-faithful than the first
+generated concept, though it still needs cleanup before browser placement.
+
 ## Human Checkpoints
 
 Human review should happen at these points:
@@ -215,7 +224,7 @@ Compare:
 
 1. Build the generic reviewed-inventory and prompt-manifest flow described in
    `docs/AUTOMATED_HYBRID_WORKFLOW.md`.
-2. Generate or manually create a cleaner isolated shrine input image.
+2. Try cleanup and browser placement with `shrine_01_simple_raw.glb`.
 3. Decide whether to rebuild the browser viewer or keep focusing on the asset
    pipeline first.
 4. Replace the source-crop clean image with a generated isolated asset image.

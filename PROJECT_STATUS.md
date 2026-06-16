@@ -16,6 +16,8 @@ pipeline.
 - A first real TripoSR GLB has been generated for `shrine_01`.
 - A second TripoSR GLB has been generated from an AI-generated clean concept
   image for `shrine_01`.
+- A third, simpler browser-asset-oriented concept image has also been generated
+  and passed through TripoSR as `shrine_01_simple`.
 - `docs/SCRIPT_INTERFACES.md` describes the expected CLI contracts and data
   flow.
 
@@ -25,6 +27,9 @@ pipeline.
 - The generated-concept TripoSR mesh has stronger roof detail and higher mesh
   density, but still collapses much of the building body into rough geometry and
   drifts from the original source shrine.
+- The simpler concept is the best current input for browser asset work: clearer,
+  less ornate, and more source-faithful, though TripoSR still only reconstructs
+  the roof/body partially from a single view.
 - The clean asset generator does not call an image backend yet.
 - `assets/generated/shrine_01_raw.glb` is valid when generated with
   `--backend tripo`, but still needs cleanup and quality review.
@@ -52,11 +57,17 @@ To run the generated clean concept image variant:
 python3 scripts/run_image_to_3d_asset.py --asset shrine_01 --scene assets/scene_parse.json --routes assets/asset_routes.json --mode clean-render --backend tripo --outdir assets/generated --input-image assets/intermediate/shrine_01_concept.png --output-suffix _concept --tripo-repo /tmp/triposr-run --tripo-python /tmp/triposr-venv/bin/python --device cpu --mc-resolution 128 --chunk-size 4096
 ```
 
+To run the simpler browser-asset concept variant:
+
+```bash
+python3 scripts/run_image_to_3d_asset.py --asset shrine_01 --scene assets/scene_parse.json --routes assets/asset_routes.json --mode clean-render --backend tripo --outdir assets/generated --input-image assets/intermediate/shrine_01_simple_concept.png --output-suffix _simple --tripo-repo /tmp/triposr-run --tripo-python /tmp/triposr-venv/bin/python --device cpu --mc-resolution 128 --chunk-size 4096
+```
+
 ## Recommended Next Work
 
 1. Build the generic reviewed-inventory and prompt-manifest flow described in
    `docs/AUTOMATED_HYBRID_WORKFLOW.md`.
-2. Generate a less ornate, source-faithful shrine concept image.
+2. Try cleanup/browser placement with `assets/generated/shrine_01_simple_raw.glb`.
 3. Wire `generate_clean_asset_image.py` to an image-generation backend that uses
    parsed scene/object context to produce a clean background-free concept image.
 4. Add validation around generated artifacts, especially GLB validity.

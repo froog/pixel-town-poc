@@ -95,6 +95,22 @@ asset render.
 - Result: stronger roof detail and better object isolation than the crop-based
   run, but noticeable concept drift and still-rough body geometry.
 
+## Simple Browser-Asset Concept Experiment
+
+- Generated a simpler, more source-faithful shrine concept image at
+  `assets/intermediate/shrine_01_simple_concept.png`.
+- Saved the chroma-key source at
+  `assets/intermediate/shrine_01_simple_concept_chromakey.png`.
+- Ran TripoSR with
+  `--input-image assets/intermediate/shrine_01_simple_concept.png` and
+  `--output-suffix _simple`.
+- Generated `assets/generated/shrine_01_simple_raw.glb`, with one geometry,
+  24,765 vertices, and 49,384 faces.
+- Generated `assets/generated/shrine_01_simple_preview.png`.
+- Result: best current browser-asset candidate. The input image is compact,
+  readable, and less ornate. The mesh still shows single-view reconstruction
+  limits, especially around the body and back side.
+
 ## Implemented Now
 
 - Source panorama stored at `assets/source/panorama.png`.
@@ -115,7 +131,7 @@ asset render.
 
 1. Build reviewed inventory and prompt manifest files so the workflow is not
    shrine-specific.
-2. Generate a more source-faithful shrine concept image with less ornamentation.
+2. Try cleanup and browser placement with `shrine_01_simple_raw.glb`.
 3. Wire a real image-generation backend into `generate_clean_asset_image.py`.
 4. Rerun TripoSR at higher resolution and compare mesh quality.
 5. Add a cleanup script for scale, origin, orientation, and material

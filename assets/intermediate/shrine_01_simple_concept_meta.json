@@ -1,0 +1,23 @@
+{
+  "asset_id": "shrine_01",
+  "source_object": {
+    "name": "shrine",
+    "category": "hero_structure",
+    "notes": "Traditional shrine/temple on a stone terrace on the far left.",
+    "bbox_pixels": [0, 77, 218, 281]
+  },
+  "backend": "built_in_image_gen",
+  "background_strategy": "chroma_key_then_alpha",
+  "chroma_key_source": "assets/intermediate/shrine_01_simple_concept_chromakey.png",
+  "transparent_output": "assets/intermediate/shrine_01_simple_concept.png",
+  "prompt_summary": "Generate a source-faithful compact browser-game shrine asset: small Japanese seaside shrine, dark blue-grey curved roof, simple rectangular wooden body, tiny stone base, low-poly toon style, no railings, no large platform, no broad stairs, no torii, no scenery.",
+  "human_review": {
+    "status": "best_current_concept_input",
+    "notes": [
+      "More compact and browser-asset-friendly than the previous concept.",
+      "Less ornate and closer to the source shrine silhouette.",
+      "Still includes small rope and curtain details, but they provide useful shrine identity.",
+      "Recommended over the crop and ornate concept for the next cleanup/browser-placement experiment."
+    ]
+  }
+}
