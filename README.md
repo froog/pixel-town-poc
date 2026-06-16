@@ -53,7 +53,7 @@ pixel-town-poc/
 
 `index.html` now loads a small Three.js viewer from `src/main.js`. Serve the
 folder over HTTP and open the local URL in a browser to inspect the cleaned
-shrine asset.
+shrine asset with lightweight procedural roads and trees.
 
 ## Implemented Now
 
@@ -64,7 +64,8 @@ shrine asset.
 - Real TripoSR backend hook for `scripts/run_image_to_3d_asset.py`.
 - Sample TripoSR-generated outputs for `shrine_01`.
 - Cleanup/normalisation for generated GLBs while preserving vertex colors.
-- Basic Three.js scene that loads `assets/generated/shrine_01_simple_clean.glb`.
+- Basic Three.js scene that loads `assets/generated/shrine_01_simple_clean.glb`
+  and adds procedural roads/trees around it.
 - Script interface documentation in `docs/SCRIPT_INTERFACES.md`.
 
 ## Not Implemented Yet
@@ -198,7 +199,9 @@ Current best browser-asset candidate:
 
 This simpler concept is less ornate and more source-faithful than the first
 generated concept. The cleaned GLB is grounded, centered, scaled, and preserves
-TripoSR vertex colors.
+TripoSR vertex colors. Its final browser rotation is stored in
+`assets/generated/shrine_01_simple_cleanup_meta.json` as X `-90`, Y `0`, Z
+`45` degrees.
 
 ### 5. Preview in Three.js
 
@@ -214,7 +217,8 @@ http://localhost:8010
 
 The viewer uses CDN-hosted Three.js modules, loads the cleaned shrine GLB,
 enables vertex colors on imported meshes, adds orbit controls, and provides a
-small ground/grid reference. Press `R` in the browser to reset the camera.
+small ground/grid reference plus procedural shrine-context roads and trees.
+Press `R` in the browser to reset the camera.
 
 ### 6. Trialed: direct parametric GLB
 

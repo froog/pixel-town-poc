@@ -1,0 +1,41 @@
+{
+  "asset_id": "procedural_surroundings_01",
+  "type": "procedural_scene_elements",
+  "viewer": "src/main.js",
+  "status": "generated_in_browser",
+  "elements": {
+    "roads": [
+      {
+        "id": "road_front_01",
+        "position": [0, 0.012, 2.15],
+        "width": 1.0,
+        "length": 6.2,
+        "rotation_y_degrees": 90
+      },
+      {
+        "id": "road_right_01",
+        "position": [2.15, 0.012, 0.85],
+        "width": 0.75,
+        "length": 3.2,
+        "rotation_y_degrees": 24
+      },
+      {
+        "id": "road_left_01",
+        "position": [-1.65, 0.012, 0.85],
+        "width": 0.62,
+        "length": 2.7,
+        "rotation_y_degrees": -32
+      }
+    ],
+    "trees": [
+      {"id": "tree_01", "position": [-1.65, 0, -0.75], "scale": 0.95},
+      {"id": "tree_02", "position": [-1.25, 0, -1.35], "scale": 0.78},
+      {"id": "tree_03", "position": [-0.72, 0, -1.08], "scale": 0.86},
+      {"id": "tree_04", "position": [1.12, 0, -1.18], "scale": 0.82},
+      {"id": "tree_05", "position": [1.62, 0, -0.62], "scale": 1.0},
+      {"id": "tree_06", "position": [2.08, 0, -1.32], "scale": 0.76},
+      {"id": "tree_07", "position": [-2.25, 0, 0.18], "scale": 0.72}
+    ]
+  },
+  "notes": "Lightweight browser-side blockout for testing shrine context before committing to generated or modelled environment assets."
+}

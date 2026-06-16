@@ -13,10 +13,10 @@ let shrineObject = null;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87d7f4);
-scene.fog = new THREE.Fog(0x87d7f4, 9, 22);
+scene.fog = new THREE.Fog(0x87d7f4, 10, 24);
 
 const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.01, 100);
-const defaultCamera = new THREE.Vector3(2.35, 1.35, 4.9);
+const defaultCamera = new THREE.Vector3(3.65, 2.25, 6.4);
 camera.position.copy(defaultCamera);
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
@@ -30,7 +30,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.target.set(0, 0.72, 0);
 controls.minDistance = 2.2;
-controls.maxDistance = 9;
+controls.maxDistance = 12;
 controls.maxPolarAngle = Math.PI * 0.48;
 
 const hemi = new THREE.HemisphereLight(0xbfeeff, 0x5c6e4f, 2.15);
@@ -45,14 +45,14 @@ fill.position.set(-4, 2.5, -3);
 scene.add(fill);
 
 const ground = new THREE.Mesh(
-  new THREE.CircleGeometry(3.2, 48),
+  new THREE.CircleGeometry(5.8, 64),
   new THREE.MeshStandardMaterial({ color: 0xbcd7a0, roughness: 0.9, metalness: 0 })
 );
 ground.rotation.x = -Math.PI / 2;
 ground.position.y = -0.015;
 scene.add(ground);
 
-const grid = new THREE.GridHelper(6, 24, 0x7ba0a0, 0x9fc8b4);
+const grid = new THREE.GridHelper(10, 32, 0x7ba0a0, 0x9fc8b4);
 grid.position.y = 0.002;
 grid.material.opacity = 0.22;
 grid.material.transparent = true;
@@ -100,6 +100,62 @@ function addAxis(name, color, direction) {
 addAxis('X', 0xd94242, new THREE.Vector3(1, 0, 0));
 addAxis('Y', 0x2b9f54, new THREE.Vector3(0, 1, 0));
 addAxis('Z', 0x2f6fd6, new THREE.Vector3(0, 0, 1));
+
+const roadMaterial = new THREE.MeshBasicMaterial({ color: 0x6f7d83, toneMapped: false });
+const roadEdgeMaterial = new THREE.MeshBasicMaterial({ color: 0xe6f0ee, toneMapped: false });
+const trunkMaterial = new THREE.MeshBasicMaterial({ color: 0x76512e, toneMapped: false });
+const leafMaterials = [
+  new THREE.MeshBasicMaterial({ color: 0x2f7a3e, toneMapped: false }),
+  new THREE.MeshBasicMaterial({ color: 0x3e9650, toneMapped: false }),
+  new THREE.MeshBasicMaterial({ color: 0x256b37, toneMapped: false }),
+];
+
+function addRoadSegment({ x, z, width, length, rotation = 0 }) {
+  const road = new THREE.Mesh(new THREE.BoxGeometry(width, 0.028, length), roadMaterial);
+  road.position.set(x, 0.012, z);
+  road.rotation.y = rotation;
+  scene.add(road);
+
+  const stripeCount = Math.max(2, Math.floor(length / 0.55));
+  for (let i = 0; i < stripeCount; i += 1) {
+    const offset = -length / 2 + 0.35 + i * 0.62;
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(width * 0.08, 0.012, 0.28), roadEdgeMaterial);
+    stripe.position.set(0, 0.018, offset);
+    road.add(stripe);
+  }
+}
+
+function addTree({ x, z, scale = 1, leafIndex = 0 }) {
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.055 * scale, 0.075 * scale, 0.42 * scale, 6), trunkMaterial);
+  trunk.position.set(x, 0.21 * scale, z);
+  scene.add(trunk);
+
+  const leaves = new THREE.Mesh(
+    new THREE.DodecahedronGeometry(0.26 * scale, 0),
+    leafMaterials[leafIndex % leafMaterials.length]
+  );
+  leaves.position.set(x, 0.55 * scale, z);
+  leaves.scale.set(0.9, 1.1, 0.9);
+  scene.add(leaves);
+}
+
+function addProceduralSurroundings() {
+  addRoadSegment({ x: 0, z: 2.15, width: 1.0, length: 6.2, rotation: Math.PI / 2 });
+  addRoadSegment({ x: 2.15, z: 0.85, width: 0.75, length: 3.2, rotation: 0.42 });
+  addRoadSegment({ x: -1.65, z: 0.85, width: 0.62, length: 2.7, rotation: -0.55 });
+
+  [
+    { x: -1.65, z: -0.75, scale: 0.95 },
+    { x: -1.25, z: -1.35, scale: 0.78 },
+    { x: -0.72, z: -1.08, scale: 0.86 },
+    { x: 1.12, z: -1.18, scale: 0.82 },
+    { x: 1.62, z: -0.62, scale: 1.0 },
+    { x: 2.08, z: -1.32, scale: 0.76 },
+    { x: -2.25, z: 0.18, scale: 0.72 },
+  ].forEach((tree, index) => addTree({ ...tree, leafIndex: index }));
+}
+
+addProceduralSurroundings();
 
 const contactShadow = new THREE.Mesh(
   new THREE.CircleGeometry(0.95, 32),
@@ -185,7 +241,7 @@ loader.load(
     applyBrowserMaterial(shrine);
     applyRotationFromInputs();
     scene.add(shrine);
-    statusEl.textContent = 'Loaded assets/generated/shrine_01_simple_clean.glb';
+    statusEl.textContent = 'Loaded shrine plus procedural roads/trees';
   },
   undefined,
   (error) => {

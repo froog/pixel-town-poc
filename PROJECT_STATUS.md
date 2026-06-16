@@ -1,7 +1,8 @@
 # Project Status
 
 This repository is currently a lightweight scaffold for the Pixel Town 3D asset
-pipeline, with a basic Three.js scene for previewing the cleaned shrine asset.
+pipeline, with a basic Three.js scene for previewing the cleaned shrine asset
+with procedural shrine-context roads and trees.
 
 ## What Is Implemented
 
@@ -24,6 +25,9 @@ pipeline, with a basic Three.js scene for previewing the cleaned shrine asset.
   GLBs while preserving vertex colors.
 - `index.html` and `src/main.js` provide a basic Three.js viewer for
   `assets/generated/shrine_01_simple_clean.glb`.
+- `src/main.js` adds browser-side procedural roads and low-poly trees around
+  the shrine. Metadata for that blockout lives at
+  `assets/generated/procedural_surroundings_meta.json`.
 - Direct parametric GLBs were generated for `house_blue_01`, `train_01`,
   `vending_machine_01`, and a shrine baseline, but are not good enough for the
   active browser-world direction.
@@ -40,13 +44,14 @@ pipeline, with a basic Three.js scene for previewing the cleaned shrine asset.
   less ornate, and more source-faithful, though TripoSR still only reconstructs
   the roof/body partially from a single view.
 - `assets/generated/shrine_01_simple_clean.glb` is grounded, centered, scaled to
-  2.0 units tall, and keeps the TripoSR vertex colors.
+  2.0 units tall, keeps the TripoSR vertex colors, and has browser placement
+  metadata recording rotation X `-90`, Y `0`, Z `45` degrees.
 - The clean asset generator does not call an image backend yet.
 - `assets/generated/shrine_01_raw.glb` is valid when generated with
   `--backend tripo`, but still needs cleanup and quality review.
 - The browser scene is intentionally minimal and currently hard-codes
-  `shrine_01_simple_clean.glb`; it does not yet read a generic placement
-  manifest.
+  `shrine_01_simple_clean.glb` plus a small procedural surroundings blockout;
+  it does not yet read a generic placement manifest.
 - The parametric backend is intentionally simple box/gable geometry. It is a
   browser-friendly baseline/test fixture, not the recommended asset path.
 

@@ -71,6 +71,22 @@
   "output_faces": 49426,
   "output_is_watertight": true,
   "has_vertex_colors": true,
+  "browser_placement": {
+    "viewer": "src/main.js",
+    "rotation_degrees": {
+      "x": -90,
+      "y": 0,
+      "z": 45
+    },
+    "rotation_order": "XYZ",
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1,
+    "notes": "Final hand-tuned browser orientation for the cleaned shrine asset."
+  },
   "transform": {
     "up_axis": "y",
     "target_height": 2.0,
