@@ -1,7 +1,7 @@
 # Project Status
 
 This repository is currently a lightweight scaffold for the Pixel Town 3D asset
-pipeline, with a basic Three.js asset shelf for previewing generated GLBs.
+pipeline, with a basic Three.js scene for previewing the cleaned shrine asset.
 
 ## What Is Implemented
 
@@ -22,11 +22,11 @@ pipeline, with a basic Three.js asset shelf for previewing generated GLBs.
   and passed through TripoSR as `shrine_01_simple`.
 - `scripts/cleanup_glb_asset.py` performs a first cleanup pass for generated
   GLBs while preserving vertex colors.
-- `index.html` and `src/main.js` provide a basic Three.js viewer for the
-  cleaned shrine plus direct parametric shrine, house, train, and
-  vending-machine GLBs.
-- Direct parametric GLBs have been generated for `house_blue_01`, `train_01`,
-  `vending_machine_01`, and a shrine baseline.
+- `index.html` and `src/main.js` provide a basic Three.js viewer for
+  `assets/generated/shrine_01_simple_clean.glb`.
+- Direct parametric GLBs were generated for `house_blue_01`, `train_01`,
+  `vending_machine_01`, and a shrine baseline, but are not good enough for the
+  active browser-world direction.
 - `docs/SCRIPT_INTERFACES.md` describes the expected CLI contracts and data
   flow.
 
@@ -44,10 +44,11 @@ pipeline, with a basic Three.js asset shelf for previewing generated GLBs.
 - The clean asset generator does not call an image backend yet.
 - `assets/generated/shrine_01_raw.glb` is valid when generated with
   `--backend tripo`, but still needs cleanup and quality review.
-- The browser scene is intentionally minimal and currently hard-codes a small
-  asset shelf; it does not yet read a generic placement manifest.
+- The browser scene is intentionally minimal and currently hard-codes
+  `shrine_01_simple_clean.glb`; it does not yet read a generic placement
+  manifest.
 - The parametric backend is intentionally simple box/gable geometry. It is a
-  browser-friendly baseline, not a full modelling system.
+  browser-friendly baseline/test fixture, not the recommended asset path.
 
 ## Current Sample Command Sequence
 
@@ -90,11 +91,13 @@ python3 -m http.server 8010
 
 Then open `http://localhost:8010`.
 
-To run the direct local parametric route:
+Trialed direct local parametric route:
 
 ```bash
 python3 scripts/run_prompt_to_3d_asset.py --asset vending_machine_01 --scene assets/scene_parse.json --routes assets/asset_routes.json --backend parametric --outdir assets/generated
 ```
+
+Current decision: do not use the parametric outputs in the active viewer.
 
 ## Recommended Next Work
 

@@ -51,9 +51,9 @@ pixel-town-poc/
     main.js
 ```
 
-`index.html` now loads a small Three.js asset shelf from `src/main.js`. Serve
-the folder over HTTP and open the local URL in a browser to inspect the cleaned
-shrine beside the newer direct parametric GLBs.
+`index.html` now loads a small Three.js viewer from `src/main.js`. Serve the
+folder over HTTP and open the local URL in a browser to inspect the cleaned
+shrine asset.
 
 ## Implemented Now
 
@@ -64,8 +64,7 @@ shrine beside the newer direct parametric GLBs.
 - Real TripoSR backend hook for `scripts/run_image_to_3d_asset.py`.
 - Sample TripoSR-generated outputs for `shrine_01`.
 - Cleanup/normalisation for generated GLBs while preserving vertex colors.
-- Basic Three.js scene that loads the cleaned shrine plus direct parametric
-  shrine, house, train, and vending-machine GLBs.
+- Basic Three.js scene that loads `assets/generated/shrine_01_simple_clean.glb`.
 - Script interface documentation in `docs/SCRIPT_INTERFACES.md`.
 
 ## Not Implemented Yet
@@ -213,12 +212,11 @@ Then open:
 http://localhost:8010
 ```
 
-The viewer uses CDN-hosted Three.js modules, loads the cleaned shrine plus the
-newer direct parametric GLBs, enables vertex colors when available, adds orbit
-controls, labels each asset, and provides a small ground/grid reference. Press
-`R` in the browser to reset the camera.
+The viewer uses CDN-hosted Three.js modules, loads the cleaned shrine GLB,
+enables vertex colors on imported meshes, adds orbit controls, and provides a
+small ground/grid reference. Press `R` in the browser to reset the camera.
 
-### 6. Generate a direct parametric GLB
+### 6. Trialed: direct parametric GLB
 
 For simple describable objects, the direct route skips image generation and
 builds a small local GLB from object metadata:
@@ -238,6 +236,11 @@ The current parametric backend writes:
 - `assets/generated/<asset_id>_prompt3d_prompt.txt`
 - `assets/generated/<asset_id>_prompt3d_generation_meta.json`
 - `assets/generated/<asset_id>_prompt3d_notes.md`
+
+Current decision: these parametric assets are not good enough for the browser
+world direction, so they are not loaded in the active viewer. Keep the route as
+a possible future baseline or test fixture, but prioritise cleaner
+image-to-3D/cleanup output instead.
 
 ## Human Checkpoints
 
@@ -271,7 +274,6 @@ Compare:
 
 - direct crop to image-to-3D,
 - clean render to image-to-3D,
-- metadata prompt to parametric GLB,
 - manual or procedural fallback.
 
 ## Near-Term Next Steps
