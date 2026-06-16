@@ -70,6 +70,20 @@ asset render.
 - Quality note: the mesh mostly captures the shrine roof mass and needs a
   cleaner isolated input plus cleanup.
 
+## Hybrid Clean-Image Experiment
+
+- Generated a cleaner shrine concept image at
+  `assets/intermediate/shrine_01_concept.png`.
+- Saved the chroma-key source at
+  `assets/intermediate/shrine_01_concept_chromakey.png`.
+- Ran TripoSR with `--input-image assets/intermediate/shrine_01_concept.png`
+  and `--output-suffix _concept`.
+- Generated `assets/generated/shrine_01_concept_raw.glb`, with one geometry,
+  26,967 vertices, and 53,708 faces.
+- Generated `assets/generated/shrine_01_concept_preview.png`.
+- Result: stronger roof detail and better object isolation than the crop-based
+  run, but noticeable concept drift and still-rough body geometry.
+
 ## Implemented Now
 
 - Source panorama stored at `assets/source/panorama.png`.
@@ -88,9 +102,8 @@ asset render.
 
 ## Recommended Next Technical Iteration
 
-1. Wire a real image-generation backend into `generate_clean_asset_image.py`.
-2. Generate a cleaner isolated shrine image without stairs, trees, or torii
-   unless intentionally included.
+1. Generate a more source-faithful shrine concept image with less ornamentation.
+2. Wire a real image-generation backend into `generate_clean_asset_image.py`.
 3. Rerun TripoSR at higher resolution and compare mesh quality.
 4. Add a cleanup script for scale, origin, orientation, and material
    simplification.

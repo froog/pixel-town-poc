@@ -1,0 +1,22 @@
+{
+  "asset_id": "shrine_01",
+  "source_object": {
+    "name": "shrine",
+    "category": "hero_structure",
+    "notes": "Traditional shrine/temple on a stone terrace on the far left.",
+    "bbox_pixels": [0, 77, 218, 281]
+  },
+  "backend": "built_in_image_gen",
+  "background_strategy": "chroma_key_then_alpha",
+  "chroma_key_source": "assets/intermediate/shrine_01_concept_chromakey.png",
+  "transparent_output": "assets/intermediate/shrine_01_concept.png",
+  "prompt_summary": "Generate a clean isolated low-poly/toon 3D concept render of a compact traditional Japanese seaside town shrine with a dark grey curved tiled roof, wooden entry, and stone base on a flat #00ff00 chroma-key background. Exclude scene background, trees, people, text, sky, and extra props.",
+  "human_review": {
+    "status": "usable_for_experiment",
+    "notes": [
+      "Cleaner and more 3D-friendly than the source crop.",
+      "Drifted into a larger and more ornate shrine than the source object.",
+      "Includes railings and steps even though the prompt asked to exclude them."
+    ]
+  }
+}

@@ -24,10 +24,14 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--device", default="cpu")
     p.add_argument("--mc-resolution", default=128, type=int)
     p.add_argument("--chunk-size", default=4096, type=int)
+    p.add_argument("--input-image", help="Override resolved image input for real backends")
+    p.add_argument("--output-suffix", default="", help="Suffix to append after asset id in output filenames")
     return p.parse_args()
 
 
 def resolve_input_image(args: argparse.Namespace, scene: dict) -> Path:
+    if args.input_image:
+        return Path(args.input_image)
     scene_path = Path(args.scene)
     assets_root = scene_path.parent
     if args.mode == "clean-render":
@@ -95,9 +99,10 @@ def main() -> None:
 
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
-    raw = outdir / f"{args.asset}_raw.glb"
-    meta = outdir / f"{args.asset}_generation_meta.json"
-    notes = outdir / f"{args.asset}_notes.md"
+    stem = f"{args.asset}{args.output_suffix}"
+    raw = outdir / f"{stem}_raw.glb"
+    meta = outdir / f"{stem}_generation_meta.json"
+    notes = outdir / f"{stem}_notes.md"
 
     backend_meta = {}
     if args.backend == "stub":

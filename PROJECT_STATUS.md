@@ -14,12 +14,17 @@ pipeline.
 - `scripts/run_image_to_3d_asset.py` supports both `--backend stub` and a real
   local `--backend tripo` adapter.
 - A first real TripoSR GLB has been generated for `shrine_01`.
+- A second TripoSR GLB has been generated from an AI-generated clean concept
+  image for `shrine_01`.
 - `docs/SCRIPT_INTERFACES.md` describes the expected CLI contracts and data
   flow.
 
 ## What Is Stubbed Or Missing
 
 - The first TripoSR mesh is rough and mostly captures the shrine roof mass.
+- The generated-concept TripoSR mesh has stronger roof detail and higher mesh
+  density, but still collapses much of the building body into rough geometry and
+  drifts from the original source shrine.
 - The clean asset generator does not call an image backend yet.
 - `assets/generated/shrine_01_raw.glb` is valid when generated with
   `--backend tripo`, but still needs cleanup and quality review.
@@ -41,9 +46,15 @@ To run the real TripoSR backend, provide a local TripoSR checkout and venv:
 python3 scripts/run_image_to_3d_asset.py --asset shrine_01 --scene assets/scene_parse.json --routes assets/asset_routes.json --mode clean-render --backend tripo --outdir assets/generated --tripo-repo /tmp/triposr-run --tripo-python /tmp/triposr-venv/bin/python --device cpu --mc-resolution 128 --chunk-size 4096
 ```
 
+To run the generated clean concept image variant:
+
+```bash
+python3 scripts/run_image_to_3d_asset.py --asset shrine_01 --scene assets/scene_parse.json --routes assets/asset_routes.json --mode clean-render --backend tripo --outdir assets/generated --input-image assets/intermediate/shrine_01_concept.png --output-suffix _concept --tripo-repo /tmp/triposr-run --tripo-python /tmp/triposr-venv/bin/python --device cpu --mc-resolution 128 --chunk-size 4096
+```
+
 ## Recommended Next Work
 
-1. Generate or manually create a cleaner isolated shrine input image.
+1. Generate a less ornate, source-faithful shrine concept image.
 2. Wire `generate_clean_asset_image.py` to an image-generation backend that uses
    parsed scene/object context to produce a clean background-free concept image.
 3. Add validation around generated artifacts, especially GLB validity.

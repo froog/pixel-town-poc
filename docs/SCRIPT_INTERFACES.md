@@ -207,6 +207,20 @@ python3 scripts/run_image_to_3d_asset.py \
 - `tripo`
 - `manual`
 
+### Optional backend-control flags
+
+- `--input-image PATH`: override the image resolved from `--mode`.
+- `--output-suffix SUFFIX`: write a named output variant such as
+  `shrine_01_concept_raw.glb`.
+- `--tripo-repo PATH`: local TripoSR checkout for `--backend tripo`.
+- `--tripo-python PATH`: Python interpreter for the TripoSR environment.
+- `--device cpu|cuda:0|...`: backend device hint.
+- `--mc-resolution N`: TripoSR marching-cubes resolution.
+- `--chunk-size N`: TripoSR evaluation chunk size.
+
+These flags make A/B tests possible without overwriting the baseline crop-based
+output.
+
 ### Outputs
 
 - `assets/generated/shrine_01_raw.glb`
