@@ -37,6 +37,7 @@ pixel-town-poc/
       shrine_01_generation_meta.json
       shrine_01_notes.md
   docs/
+    AUTOMATED_HYBRID_WORKFLOW.md
     SCRIPT_INTERFACES.md
     Pixel_Town_3D_POC_Handoff.md
   scripts/
@@ -191,6 +192,11 @@ Human review should happen at these points:
 5. In-world review: inspect whether approved assets feel correct in the browser
    scene once the viewer exists.
 
+Future automation should keep these as explicit gates rather than silent
+decisions: confirm the object inventory, confirm generated prompts, approve
+clean concept images, then approve or reject generated meshes. See
+`docs/AUTOMATED_HYBRID_WORKFLOW.md`.
+
 ## Recommended First Experiments
 
 Use these assets for early A/B testing:
@@ -207,10 +213,12 @@ Compare:
 
 ## Near-Term Next Steps
 
-1. Generate or manually create a cleaner isolated shrine input image.
-2. Decide whether to rebuild the browser viewer or keep focusing on the asset
+1. Build the generic reviewed-inventory and prompt-manifest flow described in
+   `docs/AUTOMATED_HYBRID_WORKFLOW.md`.
+2. Generate or manually create a cleaner isolated shrine input image.
+3. Decide whether to rebuild the browser viewer or keep focusing on the asset
    pipeline first.
-3. Replace the source-crop clean image with a generated isolated asset image.
-4. Add cleanup/normalisation for the TripoSR GLB.
-5. Add validation so placeholder GLB files cannot be mistaken for production
+4. Replace the source-crop clean image with a generated isolated asset image.
+5. Add cleanup/normalisation for the TripoSR GLB.
+6. Add validation so placeholder GLB files cannot be mistaken for production
    assets.

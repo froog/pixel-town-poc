@@ -54,10 +54,12 @@ python3 scripts/run_image_to_3d_asset.py --asset shrine_01 --scene assets/scene_
 
 ## Recommended Next Work
 
-1. Generate a less ornate, source-faithful shrine concept image.
-2. Wire `generate_clean_asset_image.py` to an image-generation backend that uses
+1. Build the generic reviewed-inventory and prompt-manifest flow described in
+   `docs/AUTOMATED_HYBRID_WORKFLOW.md`.
+2. Generate a less ornate, source-faithful shrine concept image.
+3. Wire `generate_clean_asset_image.py` to an image-generation backend that uses
    parsed scene/object context to produce a clean background-free concept image.
-3. Add validation around generated artifacts, especially GLB validity.
-4. Add cleanup/normalisation for generated GLBs.
-5. Decide whether the next milestone is a browser viewer or better asset
+4. Add validation around generated artifacts, especially GLB validity.
+5. Add cleanup/normalisation for generated GLBs.
+6. Decide whether the next milestone is a browser viewer or better asset
    generation.

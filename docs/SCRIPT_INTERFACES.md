@@ -4,6 +4,9 @@ This document defines the next layer of automation for the Pixel Town 3D POC.
 
 The goal is to make the workflow explicit enough that a coding agent (for example Codex) can implement or extend it incrementally.
 
+For the broader future automation loop with user review gates, see
+`docs/AUTOMATED_HYBRID_WORKFLOW.md`.
+
 ---
 
 ## 1. `scripts/parse_scene.py`

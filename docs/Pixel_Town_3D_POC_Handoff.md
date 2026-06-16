@@ -47,6 +47,17 @@ drift: the generated clean image may look plausible but no longer match the
 source. Keep a human checkpoint between clean-image generation and 3D
 generation.
 
+For a non-shrine-specific automation plan, see
+`docs/AUTOMATED_HYBRID_WORKFLOW.md`. The intended future loop is:
+
+1. scan image for major objects,
+2. ask the user to confirm and tweak the inventory,
+3. generate prompts for approved objects,
+4. ask the user to confirm or edit prompts,
+5. generate clean concept images,
+6. ask the user to approve images,
+7. run approved images through image-to-3D.
+
 ## Working Pipeline
 
 ```bash
@@ -102,10 +113,12 @@ asset render.
 
 ## Recommended Next Technical Iteration
 
-1. Generate a more source-faithful shrine concept image with less ornamentation.
-2. Wire a real image-generation backend into `generate_clean_asset_image.py`.
-3. Rerun TripoSR at higher resolution and compare mesh quality.
-4. Add a cleanup script for scale, origin, orientation, and material
+1. Build reviewed inventory and prompt manifest files so the workflow is not
+   shrine-specific.
+2. Generate a more source-faithful shrine concept image with less ornamentation.
+3. Wire a real image-generation backend into `generate_clean_asset_image.py`.
+4. Rerun TripoSR at higher resolution and compare mesh quality.
+5. Add a cleanup script for scale, origin, orientation, and material
    simplification.
-5. Add GLB validation so placeholder and generated outputs are clearly
+6. Add GLB validation so placeholder and generated outputs are clearly
    distinguished.
