@@ -42,7 +42,7 @@ tram) to `logs/latest.json` and `logs/viewport.jsonl` whenever the view changes.
 `B` or 🚩 flags a view with a note and screenshot into `logs/flags/`. Every
 entry has a `link` with `#view=…` that reopens that exact viewpoint. Add `?lite` for a
 lighter build; touch devices get it automatically.
-Keys: `1-6` cameras, `F` walk, `N` day/night, `T` hurry the tram, `[ ]` pixel size,
+Keys: `1-6` cameras, `F` walk, `V` fly (WASD, `R` up, `F` down, Shift fast), `N` day/night, `T` hurry the tram, `[ ]` pixel size,
 `H` hide UI, `P` save a postcard PNG, `space` pause time.
 
 The previous single-asset viewer (rotation controls) now lives at

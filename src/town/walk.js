@@ -15,6 +15,8 @@ const EYE = 0.62;
 const WALK = 2.4;
 const RUN = 5.2;
 const MAX_STEP = 0.32;
+const FLY = 9;
+const FLY_FAST = 26;
 
 export function walkableY(x, z) {
   // road tunnel floor
@@ -67,6 +69,8 @@ export function createWalker({ camera, canvas, onExit, onZone }) {
   const pos = new THREE.Vector3();
   let groundY = 0;
   let active = false;
+  let mode = 'walk';
+  let lift = 0; // touch up/down buttons
   let bob = 0;
   let zoneTimer = 0;
   let lastZone = '';
@@ -132,6 +136,31 @@ export function createWalker({ camera, canvas, onExit, onZone }) {
   const fwd = new THREE.Vector3();
   const right = new THREE.Vector3();
 
+  const move = new THREE.Vector3();
+  function flyStep(dt, mx, mz, run) {
+    const up = (keys.has('KeyR') || keys.has('PageUp') ? 1 : 0) - (keys.has('KeyF') || keys.has('PageDown') ? 1 : 0) + lift;
+    camera.getWorldDirection(fwd);
+    right.crossVectors(fwd, camera.up).normalize();
+    move.set(0, 0, 0).addScaledVector(fwd, mz).addScaledVector(right, mx);
+    if (move.lengthSq() > 1) move.normalize();
+    move.y += THREE.MathUtils.clamp(up, -1, 1);
+    const speed = (run || Math.hypot(touch.mx, touch.mz) > 0.95 ? FLY_FAST : FLY) * dt;
+    const p = camera.position;
+    p.addScaledVector(move, speed);
+    p.x = THREE.MathUtils.clamp(p.x, EXTENT.x0 - 40, EXTENT.x1 + 40);
+    p.z = THREE.MathUtils.clamp(p.z, EXTENT.z0 - 60, EXTENT.z1 + 40);
+    const floor = Math.max(walkableY(p.x, p.z), SEA) + 0.35;
+    p.y = THREE.MathUtils.clamp(p.y, floor, 160);
+    pos.set(p.x, p.y, p.z);
+    zoneTimer -= dt;
+    if (zoneTimer <= 0) {
+      zoneTimer = 0.4;
+      const zone = zoneAt(p.x, p.z, p.y);
+      if (zone && zone !== lastZone) onZone?.(zone);
+      lastZone = zone;
+    }
+  }
+
   function tryMove(nx, nz) {
     const ny = walkableY(nx, nz);
     if (ny - groundY > MAX_STEP) return false;
@@ -149,7 +178,35 @@ export function createWalker({ camera, canvas, onExit, onZone }) {
     get position() {
       return pos;
     },
+    get mode() {
+      return mode;
+    },
+    setLift(v) {
+      lift = v;
+    },
+    // Take off from wherever the camera is (keeps its orientation).
+    fly() {
+      mode = 'fly';
+      active = true;
+      pos.copy(camera.position);
+      euler.setFromQuaternion(camera.quaternion, 'YXZ');
+      euler.z = 0;
+      camera.quaternion.setFromEuler(euler);
+      if (!('ontouchstart' in window) && !look.isLocked) look.lock();
+    },
+    // Drop straight down and continue on foot.
+    land() {
+      const x = camera.position.x;
+      const z = camera.position.z;
+      euler.setFromQuaternion(camera.quaternion, 'YXZ');
+      mode = 'walk';
+      pos.set(x, 0, z);
+      groundY = walkableY(x, z);
+      euler.x = THREE.MathUtils.clamp(euler.x, -0.6, 0.4);
+      camera.quaternion.setFromEuler(euler);
+    },
     enter(x, z, yaw) {
+      mode = 'walk';
       active = true;
       pos.set(x, 0, z);
       groundY = walkableY(x, z);
@@ -159,11 +216,13 @@ export function createWalker({ camera, canvas, onExit, onZone }) {
       if (!('ontouchstart' in window)) look.lock();
     },
     exit() {
+      const was = mode;
       active = false;
+      lift = 0;
       keys.clear();
       document.body.classList.remove('touched');
       if (look.isLocked) look.unlock();
-      onExit?.();
+      onExit?.(was);
     },
     update(dt) {
       if (!active) return;
@@ -172,6 +231,10 @@ export function createWalker({ camera, canvas, onExit, onZone }) {
       let mx = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
       mz -= touch.mz;
       mx += touch.mx;
+      if (mode === 'fly') {
+        flyStep(dt, mx, mz, run);
+        return;
+      }
       camera.getWorldDirection(fwd);
       fwd.y = 0;
       fwd.normalize();

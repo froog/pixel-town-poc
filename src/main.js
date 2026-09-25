@@ -365,23 +365,28 @@ const walker = createWalker({
   camera,
   canvas: renderer.domElement,
   onZone: (name) => toast(name),
-  onExit: () => {
-    document.body.classList.remove('walking');
+  onExit: (mode) => {
+    document.body.classList.remove('walking', 'flying');
     $('#walk').classList.remove('on');
+    $('#fly').classList.remove('on');
     camera.fov = 38;
     camera.near = 0.3;
     camera.updateProjectionMatrix();
-    camera.position.copy(orbitView.pos);
-    controls.target.copy(orbitView.target);
+    if (mode === 'fly') {
+      // stay where we flew to, orbiting a point just ahead
+      const ahead = new THREE.Vector3();
+      camera.getWorldDirection(ahead);
+      controls.target.copy(camera.position).addScaledVector(ahead, 14);
+      controls.target.y = Math.max(controls.target.y, heightAt(controls.target.x, controls.target.z));
+    } else {
+      camera.position.copy(orbitView.pos);
+      controls.target.copy(orbitView.target);
+    }
     controls.enabled = true;
     controls.update();
   },
 });
-function toggleWalk() {
-  if (walker.active) {
-    walker.exit();
-    return;
-  }
+function leaveOrbit() {
   tween = null;
   orbitView.pos.copy(camera.position);
   orbitView.target.copy(controls.target);
@@ -392,8 +397,36 @@ function toggleWalk() {
   camera.near = 0.05;
   camera.updateProjectionMatrix();
   document.body.classList.add('walking');
-  $('#walk').classList.add('on');
   document.querySelectorAll('[data-cam]').forEach((b) => b.classList.remove('on'));
+}
+function setModeUi(mode) {
+  document.body.classList.toggle('flying', mode === 'fly');
+  $('#walk').classList.toggle('on', mode === 'walk');
+  $('#fly').classList.toggle('on', mode === 'fly');
+}
+function toggleFly() {
+  if (walker.active && walker.mode === 'fly') {
+    walker.exit();
+    return;
+  }
+  if (!walker.active) leaveOrbit();
+  else camera.position.y += 1.5; // take off from a walk
+  walker.fly();
+  setModeUi('fly');
+  toast('Fly: WASD · R up · F down · Shift fast');
+}
+function toggleWalk() {
+  if (walker.active && walker.mode === 'fly') {
+    walker.land();
+    setModeUi('walk');
+    return;
+  }
+  if (walker.active) {
+    walker.exit();
+    return;
+  }
+  leaveOrbit();
+  setModeUi('walk');
   // start near whatever the camera was looking at
   const t = controls.target;
   if (t.x > 62) walker.enter(66, -2.9, -Math.PI / 2);
@@ -531,17 +564,31 @@ $('#postcard').addEventListener('click', () => {
   wantPostcard = true;
 });
 $('#walk').addEventListener('click', toggleWalk);
+$('#fly').addEventListener('click', toggleFly);
+for (const [id, v] of [['#fly-up', 1], ['#fly-down', -1]]) {
+  const el = $(id);
+  const on = (e) => { e.preventDefault(); walker.setLift(v); };
+  const off = () => walker.setLift(0);
+  el.addEventListener('pointerdown', on);
+  el.addEventListener('pointerup', off);
+  el.addEventListener('pointerleave', off);
+  el.addEventListener('pointercancel', off);
+}
 $('#flag').addEventListener('click', flagView);
 $('#hide').addEventListener('click', () => document.body.classList.toggle('bare'));
 
 window.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') return;
   const k = e.key.toLowerCase();
+  if (k === 'v') {
+    toggleFly();
+    return;
+  }
+  if (walker.active && 'wasdrf'.includes(k)) return; // movement keys
   if (k === 'f') {
     toggleWalk();
     return;
   }
-  if (walker.active && 'wasd'.includes(k)) return;
   if (k === ' ') {
     togglePlay();
     e.preventDefault();
@@ -575,7 +622,7 @@ function viewState() {
   const heading = (((-THREE.MathUtils.radToDeg(e.y)) % 360) + 360) % 360;
   const st = {
     session: sessionId,
-    mode: walker.active ? 'walk' : 'orbit',
+    mode: walker.active ? walker.mode : 'orbit',
     pos: camera.position.toArray().map((v) => round(v)),
     target: walker.active ? null : controls.target.toArray().map((v) => round(v)),
     yaw: round(e.y, 3),
@@ -606,8 +653,13 @@ function applyView(v) {
     $('#play').textContent = '▶';
     applyTimeOfDay();
   }
-  if (v.mode === 'walk') {
+  if (v.mode === 'fly') {
+    if (!walker.active || walker.mode !== 'fly') toggleFly();
+    camera.position.set(...v.pos);
+    camera.quaternion.setFromEuler(new THREE.Euler(v.pitch ?? 0, v.yaw, 0, 'YXZ'));
+  } else if (v.mode === 'walk') {
     if (!walker.active) toggleWalk();
+    else if (walker.mode === 'fly') toggleWalk();
     walker.enter(v.pos[0], v.pos[2], v.yaw);
     const e = new THREE.Euler(v.pitch ?? 0, v.yaw, 0, 'YXZ');
     camera.quaternion.setFromEuler(e);
@@ -750,4 +802,4 @@ if (viewParam) {
 }
 
 // handy for poking around from the console
-window.town = { viewState, applyView, heightAt, walker, toggleWalk, applyTimeOfDay, scene, camera, controls, state, tram, traffic, pixel, staticMeshes, goTo, setShrineMode, roadBHeight };
+window.town = { exitMode: () => walker.active && walker.exit(), toggleFly, viewState, applyView, heightAt, walker, toggleWalk, applyTimeOfDay, scene, camera, controls, state, tram, traffic, pixel, staticMeshes, goTo, setShrineMode, roadBHeight };

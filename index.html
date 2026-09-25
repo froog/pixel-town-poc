@@ -93,6 +93,10 @@
     body.locked #walkhint, body.touched #walkhint { display: none; }
     body.walking #hide { display: none; }
     #walkhint .touch { display: none; }
+    body.flying #walkhint .walkonly, body:not(.flying) #walkhint .flyonly { display: none !important; }
+    #lift { display: none; position: fixed; right: 16px; bottom: 30vh; flex-direction: column; gap: 12px; }
+    #lift button { width: 56px; height: 56px; font-size: 22px; touch-action: none; }
+    @media (hover: none) { body.flying #lift { display: flex; } }
     @media (hover: none) { #walkhint .desk { display: none; } #walkhint .touch { display: inline; } #walkhint { white-space: normal; width: 80vw; text-align: center; } }
     #walk-exit { position: fixed; left: 16px; top: 112px; }
     @media (hover: none) { body.walking #dock { display: none; } }
@@ -141,6 +145,7 @@
       <button data-cam="diorama" title="5">Diorama</button>
       <button data-cam="yamate" title="6">Yamate</button>
       <button id="walk" title="Walk around in first person (F)">🚶 Walk</button>
+      <button id="fly" title="Fly around: WASD, R up, F down (V)">🕊 Fly</button>
       <button id="orbit" title="Slow orbit">⟳</button>
     </div>
     <div class="sep"></div>
@@ -166,7 +171,7 @@
   <div id="source-full"><img src="./assets/source/panorama.png" alt="Source panorama, enlarged" /></div>
 
   <div id="keys" class="panel ui">
-    <kbd>1-6</kbd> cameras · <kbd>F</kbd> walk · <kbd>N</kbd> day/night · <kbd>T</kbd> hurry the tram<br>
+    <kbd>1-6</kbd> cameras · <kbd>F</kbd> walk · <kbd>V</kbd> fly · <kbd>N</kbd> day/night · <kbd>T</kbd> hurry the tram<br>
     <kbd>[ ]</kbd> pixel size · <kbd>H</kbd> hide UI · <kbd>P</kbd> postcard<br>
     <a href="./shrine-viewer.html" style="color:inherit">asset viewer →</a>
   </div>
@@ -175,10 +180,13 @@
   <div id="walkhud">
     <div id="crosshair"></div>
     <div id="walkhint" class="panel">
-      <span class="desk"><b>Click</b> to look around · <kbd>W A S D</kbd> move · <kbd>Shift</kbd> run · <kbd>Esc</kbd> free the mouse · <kbd>F</kbd> stop walking</span>
-      <span class="touch">Left thumb: walk · right thumb: look · push the left stick far to run</span>
+      <span class="desk walkonly"><b>Click</b> to look around · <kbd>W A S D</kbd> move · <kbd>Shift</kbd> run · <kbd>V</kbd> fly · <kbd>Esc</kbd> free the mouse · <kbd>F</kbd> stop walking</span>
+      <span class="desk flyonly"><b>Click</b> to look around · <kbd>W A S D</kbd> fly · <kbd>R</kbd> up · <kbd>F</kbd> down · <kbd>Shift</kbd> fast · <kbd>V</kbd> stop flying</span>
+      <span class="touch walkonly">Left thumb: walk · right thumb: look · push the left stick far to run</span>
+      <span class="touch flyonly">Left thumb: fly · right thumb: look · ▲ ▼ to climb and dive</span>
     </div>
-    <button id="walk-exit" class="ui">✕ Stop walking</button>
+    <button id="walk-exit" class="ui">✕ Stop</button>
+    <div id="lift"><button id="fly-up" aria-label="Fly up">▲</button><button id="fly-down" aria-label="Fly down">▼</button></div>
   </div>
 
   <script>
@@ -208,6 +216,6 @@
     }
   </script>
   <script type="module" src="./src/main.js" onerror="window.dispatchEvent(new ErrorEvent('error', { message: 'could not load the town scripts (import maps need iOS 16.4+ / a recent browser)' }))"></script>
-  <script>document.querySelector('#walk-exit').addEventListener('click', () => window.town?.toggleWalk());</script>
+  <script>document.querySelector('#walk-exit').addEventListener('click', () => window.town?.exitMode());</script>
 </body>
 </html>
