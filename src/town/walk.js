@@ -65,6 +65,11 @@ function blocked(x, z, y) {
 export function createWalker({ camera, canvas, onExit, onZone }) {
   const look = new PointerLockControls(camera, canvas);
   look.pointerSpeed = 0.7;
+  // requestPointerLock rejects without a user gesture (e.g. #view links)
+  const lock = () => {
+    const r = canvas.requestPointerLock?.();
+    if (r && typeof r.catch === 'function') r.catch(() => {});
+  };
   const keys = new Set();
   const pos = new THREE.Vector3();
   let groundY = 0;
@@ -85,7 +90,7 @@ export function createWalker({ camera, canvas, onExit, onZone }) {
   window.addEventListener('keydown', onKey);
   window.addEventListener('keyup', onKey);
   canvas.addEventListener('click', () => {
-    if (active && !look.isLocked && !('ontouchstart' in window)) look.lock();
+    if (active && !look.isLocked && !('ontouchstart' in window)) lock();
   });
   look.addEventListener('lock', () => document.body.classList.add('locked'));
   look.addEventListener('unlock', () => document.body.classList.remove('locked'));
@@ -192,7 +197,7 @@ export function createWalker({ camera, canvas, onExit, onZone }) {
       euler.setFromQuaternion(camera.quaternion, 'YXZ');
       euler.z = 0;
       camera.quaternion.setFromEuler(euler);
-      if (!('ontouchstart' in window) && !look.isLocked) look.lock();
+      if (!('ontouchstart' in window) && !look.isLocked) lock();
     },
     // Drop straight down and continue on foot.
     land() {
@@ -213,7 +218,7 @@ export function createWalker({ camera, canvas, onExit, onZone }) {
       camera.position.set(x, groundY + EYE, z);
       euler.set(-0.05, yaw, 0);
       camera.quaternion.setFromEuler(euler);
-      if (!('ontouchstart' in window)) look.lock();
+      if (!('ontouchstart' in window)) lock();
     },
     exit() {
       const was = mode;

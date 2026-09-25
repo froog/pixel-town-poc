@@ -74,7 +74,29 @@ export function rawHeight(x, z) {
 // Terrain must stay clear of tunnel tubes so their interiors read as holes.
 export const RAIL_COVER = 4.4;
 export const ROAD_COVER = RURAL_Y + 5.4;
+
+// Each portal: where it is, which way the hill lies (+1 = toward +X), and how
+// high the terrain must sit over the tube there. Behind a portal the hill
+// ramps up from that cover height instead of jumping to the ridge top, so
+// there is no see-through gap above the headwall.
+const PORTALS = [
+  { x: PORTAL_L, dir: -1, zc: TRACK_Z, half: 3.2, cover: () => RAIL_COVER },
+  { x: PORTAL_R, dir: 1, zc: TRACK_Z, half: 3.2, cover: (x) => railY(x) + RAIL_COVER },
+  { x: RAIL_EXIT, dir: -1, zc: TRACK_Z, half: 3.2, cover: (x) => railY(x) + RAIL_COVER },
+  { x: ROAD_TUNNEL.x0, dir: 1, zc: -1.9, half: 4.2, cover: () => ROAD_COVER },
+  { x: ROAD_TUNNEL.x1, dir: -1, zc: -1.9, half: 4.2, cover: () => ROAD_COVER },
+];
+
 function tunnelCover(x, z, h) {
+  for (const p of PORTALS) {
+    const d = (x - p.x) * p.dir;
+    if (d < 1 || d > 14) continue;
+    const w = 1 - smoothstep(p.half, p.half + 6, Math.abs(z - p.zc));
+    if (w <= 0) continue;
+    const cover = p.cover(x);
+    const ramped = Math.min(Math.max(h, cover), cover + (d - 1) * 1.15);
+    h = lerp(h, ramped, w);
+  }
   const railBand = Math.abs(z - TRACK_Z) < 3.2;
   if (railBand && x <= PORTAL_L - 1 && x > PORTAL_L - 17) return Math.max(h, RAIL_COVER);
   if (railBand && x >= PORTAL_R + 1 && x <= RAIL_EXIT - 1) return Math.max(h, railY(x) + RAIL_COVER);
@@ -96,7 +118,9 @@ export function heightAt(x, z) {
   let h = rawHeight(x, z);
   // railway cutting between the tunnel portals
   if (x >= PORTAL_L && x <= PORTAL_R) {
-    const band = 1 - smoothstep(1.5, 3.2, Math.abs(z - TRACK_Z));
+    // the cutting widens where it bites into the hills
+    const deep = Math.max(0, x - 18, -16 - x);
+    const band = 1 - smoothstep(1.5, 3.2 + Math.min(deep * 0.45, 4), Math.abs(z - TRACK_Z));
     h = lerp(h, Math.min(h, 0), band);
   }
   // keep the road to the harbour on a clean line
@@ -104,7 +128,8 @@ export function heightAt(x, z) {
   if (z < -7 && z > -31) h = lerp(h, roadHeight(z) - 0.14, road);
   // road B climbs gently east ("yuunagi-zaka") up to the road tunnel
   if (x > 2 && x <= ROAD_TUNNEL.x0) {
-    const band = 1 - smoothstep(1.9, 3.6, Math.abs(z - ROAD_B_Z));
+    const deep = Math.max(0, x - 24);
+    const band = 1 - smoothstep(1.9, 3.6 + Math.min(deep * 0.45, 4.5), Math.abs(z - ROAD_B_Z));
     h = lerp(h, roadBHeight(x) - 0.14, band);
   }
   if (x >= ROAD_TUNNEL.x1) {

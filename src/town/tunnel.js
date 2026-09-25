@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { makeSign } from './signs.js';
+import { heightAt } from './terrain.js';
 
 // Tunnels running along X: an arched tube (unlit, darkening with depth so it
 // reads as a hole into the hill), stone portals with voussoirs, a lid over
@@ -37,7 +38,15 @@ function pushQuad(verts, cols, a, b, c, d, col) {
 export function tunnel(B, decor, opts) {
   const { xa, xb, zc, floorY, W, wallH, openA = true, openB = true, cover, name = null, lampStep = 3 } = opts;
   const R = W / 2;
-  const coverAt = typeof cover === 'function' ? cover : () => cover;
+  const coverFn = typeof cover === 'function' ? cover : () => cover;
+  // At a portal, the lid and headwall must reach the terrain row just
+  // behind the hole, which neighbouring tunnels can push above our cover.
+  const coverAt = (x) => {
+    const inward = x === xa ? 1 : -1;
+    let top = coverFn(x);
+    for (let dz = -(W / 2 + 1.6); dz <= W / 2 + 1.6; dz += 0.5) top = Math.max(top, heightAt(x + inward, zc + dz));
+    return top;
+  };
   const prof = profile(W, wallH);
   const verts = [];
   const cols = [];
