@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Batcher, gableGeometry } from './batcher.js';
-import { roadBHeight, roadHeight, SEA, TRACK_Z } from './terrain.js';
+import { ROAD_TUNNEL, roadBHeight, roadHeight, RURAL_ROAD, RURAL_Y, SEA, TRACK_Z } from './terrain.js';
 import { STATION_STOP_X, PLATEAU, STAIRS } from './layout.js';
 import { makeRng } from './rng.js';
 import { shared, toonRamp } from './materials.js';
@@ -20,8 +20,9 @@ function buildTramCar(B, lead) {
   for (const sz of [-1, 1]) {
     for (let i = 0; i < 6; i += 1) {
       if (i === 1 || i === 4) {
-        B.box('solid', 0.5, 1.1, 0.03, -L / 2 + 0.4 + i * 0.7, 0.95, sz * (W / 2 + 0.005), 0x2f6a3e);
-        B.box('glow', 0.36, 0.4, 0.03, -L / 2 + 0.4 + i * 0.7, 1.35, sz * (W / 2 + 0.015), 0x4a6a80, { lit: 1, emit: 0xfff2cc });
+        // doorway interior; the sliding leaves are separate meshes
+        B.box('glow', 0.48, 1.08, 0.012, -L / 2 + 0.4 + i * 0.7, 0.95, sz * (W / 2 + 0.004), 0x8a7a5c, { lit: 1, emit: 0xfff0c8 });
+        B.box('glow', 0.3, 0.5, 0.013, -L / 2 + 0.4 + i * 0.7, 1.2, sz * (W / 2 + 0.005), 0xe8dcc0, { lit: 1, emit: 0xfff6dc });
         continue;
       }
       B.box('glow', 0.52, 0.42, 0.03, -L / 2 + 0.4 + i * 0.7, 1.4, sz * (W / 2 + 0.01), 0x4a6a80, { lit: 1, emit: 0xfff2cc });
@@ -68,6 +69,40 @@ function tramX(t) {
   return FAR_L;
 }
 
+// 0 = closed, 1 = open; doors open a moment after the tram stops.
+function tramDoors(t) {
+  const u = ((t % TRAM_PERIOD) + TRAM_PERIOD) % TRAM_PERIOD;
+  for (const start of [13, 51]) {
+    const k = u - start;
+    if (k < 0 || k > 8) continue;
+    return THREE.MathUtils.smoothstep(k, 0.9, 1.7) * (1 - THREE.MathUtils.smoothstep(k, 6.2, 7.0));
+  }
+  return 0;
+}
+
+function doorLeaves(car) {
+  const green = toon(0x2f6a3e);
+  const glass = new THREE.MeshBasicMaterial({ color: 0x4a6a80 });
+  const leaves = [];
+  for (const sz of [-1, 1]) {
+    for (const dx of [-1.05, 1.05]) {
+      for (const side of [-1, 1]) {
+        const leaf = new THREE.Group();
+        const panel = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.1, 0.03), green);
+        leaf.add(panel);
+        const win = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.38, 0.035), glass);
+        win.position.y = 0.2;
+        leaf.add(win);
+        const baseX = dx + side * 0.125;
+        leaf.position.set(baseX, 0.95, sz * (0.67 + 0.012));
+        car.add(leaf);
+        leaves.push({ leaf, baseX, side, sz });
+      }
+    }
+  }
+  return { leaves, glass };
+}
+
 export function createTram(scene) {
   const group = new THREE.Group();
   group.name = 'tram';
@@ -77,6 +112,7 @@ export function createTram(scene) {
     const B = new Batcher();
     buildTramCar(B, i === 0);
     B.build(car);
+    car.userData.doors = doorLeaves(car);
     car.position.y = 0.2;
     group.add(car);
     cars.push(car);
@@ -101,6 +137,17 @@ export function createTram(scene) {
     const approaching = Math.sign(-x) === state.dir && Math.abs(state.v) > 0.1;
     state.crossing = d < 0.4 || (approaching && d < 14);
     state.atStation = Math.abs(x - STATION_STOP_X) < 0.01;
+    // doors open on the platform side (+Z in world space)
+    const open = tramDoors(t + t0);
+    state.doorsOpen = open;
+    for (const car of cars) {
+      const platformSide = Math.cos(car.rotation.y) > 0 ? 1 : -1;
+      for (const d of car.userData.doors.leaves) {
+        const k = d.sz === platformSide ? open : 0;
+        d.leaf.position.x = d.baseX + d.side * k * 0.23;
+      }
+      car.userData.doors.glass.color.setHex(0x4a6a80).lerp(new THREE.Color(0xfff2cc), THREE.MathUtils.smoothstep(shared.uNight.value, 0.25, 0.7));
+    }
     // small sway while moving
     group.rotation.x = Math.sin(t * 7) * 0.004 * Math.min(1, Math.abs(state.v) / 4);
   };
@@ -211,6 +258,14 @@ function carModel(kind, bodyColor) {
     B.box('solid', 1.6, 0.5, 0.9, -0.1, 0.88, 0, bodyColor);
     B.box('glow', 1.5, 0.3, 0.92, -0.1, 0.92, 0, glass, { lit: 0 });
     B.box('glow', 0.04, 0.34, 0.76, 0.71, 0.9, 0, glass, { lit: 0 });
+  } else if (kind === 'bus') {
+    // little community bus
+    B.box('solid', 2.6, 0.5, 1.0, 0, 0.42, 0, 0x3f8a5a);
+    B.box('solid', 2.6, 0.62, 1.0, 0, 0.98, 0, bodyColor);
+    B.box('solid', 2.5, 0.08, 0.94, 0, 1.33, 0, 0xd8d4c4);
+    B.box('glow', 2.2, 0.34, 1.02, -0.1, 1.02, 0, glass, { lit: 1, emit: 0xfff2cc });
+    B.box('glow', 0.04, 0.4, 0.86, 1.31, 0.98, 0, glass, { lit: 0 });
+    B.box('glow', 0.04, 0.12, 0.6, 1.32, 1.24, 0, 0x222222, { lit: 1, emit: 0xffa040 });
   } else {
     // kei truck with a load
     B.box('solid', 0.62, 0.8, 0.86, 0.55, 0.55, 0, bodyColor);
@@ -221,12 +276,12 @@ function carModel(kind, bodyColor) {
     B.box('solid', 0.5, 0.3, 0.4, -0.4, 0.5, 0.1, 0x8a6a3a);
     B.box('solid', 0.3, 0.2, 0.3, -0.05, 0.46, -0.15, 0xf2c830);
   }
-  const front = kind === 'truck' ? 0.87 : kind === 'van' ? 0.95 : 0.8;
+  const front = kind === 'truck' ? 0.87 : kind === 'van' ? 0.95 : kind === 'bus' ? 1.3 : 0.8;
   for (const sz of [-0.3, 0.3]) {
     B.box('glow', 0.04, 0.09, 0.16, front + 0.01, 0.42, sz, 0xf6f2d8, { lit: 1, emit: 0xfffae0 });
     B.box('glow', 0.04, 0.09, 0.12, -front + (kind === 'truck' ? 0.02 : -0.01), 0.42, sz, 0xb83a2a, { lit: 1, emit: 0xff3020 });
   }
-  for (const sx of [-0.52, 0.52]) for (const sz of [-0.42, 0.42]) {
+  for (const sx of kind === 'bus' ? [-0.85, 0.85] : [-0.52, 0.52]) for (const sz of [-0.42, 0.42]) {
     B.box('solid', 0.3, 0.3, 0.1, sx, 0.15, sz, 0x222222);
   }
   const g = new THREE.Group();
@@ -244,6 +299,20 @@ class Path {
   line(x0, z0, x1, z1, step = 1) {
     const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, z1 - z0) / step));
     for (let i = 0; i <= n; i += 1) this.pts.push([x0 + ((x1 - x0) * i) / n, z0 + ((z1 - z0) * i) / n]);
+    return this;
+  }
+
+  points(list) {
+    for (const p of list) this.pts.push([p[0], p[1]]);
+    return this;
+  }
+
+  // semicircle around `c` from the left lane (c + left*r) to the other lane
+  uturn(c, dir, left, r, n = 10) {
+    for (let i = 1; i < n; i += 1) {
+      const a = (i / n) * Math.PI;
+      this.pts.push([c[0] + left[0] * r * Math.cos(a) + dir[0] * r * Math.sin(a), c[1] + left[1] * r * Math.cos(a) + dir[1] * r * Math.sin(a)]);
+    }
     return this;
   }
 
@@ -286,10 +355,31 @@ class Path {
   }
 }
 
+// Densify a polyline and offset it to the driver's left.
+function lane(points, offset) {
+  const dense = [];
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const [ax, az] = points[i];
+    const [bx, bz] = points[i + 1];
+    const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az)));
+    for (let k = 0; k < n; k += 1) dense.push([ax + ((bx - ax) * k) / n, az + ((bz - az) * k) / n]);
+  }
+  dense.push(points[points.length - 1]);
+  return dense.map((p, i) => {
+    const a = dense[Math.max(0, i - 1)];
+    const b = dense[Math.min(dense.length - 1, i + 1)];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const dx = (b[0] - a[0]) / len;
+    const dz = (b[1] - a[1]) / len;
+    return [p[0] + dz * offset, p[1] - dx * offset];
+  });
+}
+
 function roadY(x, z) {
   let y;
   if (Math.abs(x) <= 1.75) y = z > -8.4 ? 0.03 : roadHeight(z);
-  else y = roadBHeight(x);
+  else if (x <= ROAD_TUNNEL.x1) y = roadBHeight(x);
+  else y = RURAL_Y;
   if (Math.abs(x) < 1.7 && Math.abs(z - TRACK_Z) < 1.3) y = 0.17;
   return y;
 }
@@ -301,8 +391,17 @@ export function createTraffic(scene) {
     .line(0.75, -28.5, 0.75, 40)
     .arc(0, 40, 0.75, 0, Math.PI)
     .finish();
+  // road B -> Yamate tunnel -> rural road, driving on the left
+  const centre = [[1.65, -1.9], [ROAD_TUNNEL.x1, -1.9], ...RURAL_ROAD.slice(1)];
+  const eb = lane(centre, 0.75);
+  const wb = lane([...centre].reverse(), 0.75);
+  const end = centre[centre.length - 1];
+  const prev = centre[centre.length - 2];
+  const dl = Math.hypot(end[0] - prev[0], end[1] - prev[1]);
+  const dir = [(end[0] - prev[0]) / dl, (end[1] - prev[1]) / dl];
+  const left = [dir[1], -dir[0]];
   const Bp = new Path()
-    .line(44, -1.15, 1.5, -1.15)
+    .points(wb)
     .arc(1.5, -0.4, 0.75, -Math.PI / 2, -Math.PI, 6)
     .line(0.75, -0.4, 0.75, 40)
     .arc(0, 40, 0.75, 0, Math.PI)
@@ -310,8 +409,8 @@ export function createTraffic(scene) {
     .arc(0, -28.5, 0.75, Math.PI, Math.PI * 2)
     .line(0.75, -28.5, 0.75, -3.55)
     .arc(1.65, -3.55, 0.9, Math.PI, Math.PI / 2, 6)
-    .line(1.65, -2.65, 44, -2.65)
-    .arc(44, -1.9, 0.75, -Math.PI / 2, Math.PI / 2)
+    .points(eb)
+    .uturn(end, dir, left, 0.75)
     .finish();
 
   const specs = [
@@ -321,6 +420,8 @@ export function createTraffic(scene) {
     { path: Bp, s: 20, kind: 'truck', color: 0xf2f2ea, speed: 3.4 },
     { path: Bp, s: 120, kind: 'kei', color: 0xf2c830, speed: 4.0 },
     { path: Bp, s: 200, kind: 'van', color: 0x9ad87a, speed: 3.6 },
+    { path: Bp, s: 300, kind: 'bus', color: 0xf2ecd8, speed: 3.2 },
+    { path: Bp, s: 390, kind: 'truck', color: 0xe8e8e0, speed: 3.0 },
   ];
   const cars = specs.map((spec) => {
     const mesh = carModel(spec.kind, spec.color);
@@ -477,18 +578,19 @@ export function createGulls(scene) {
 
 // ---------------------------------------------------------------- night fx
 
-export function createFireflies(scene) {
+export function createFireflies(scene, extra = []) {
   const rng = makeRng(77);
-  const count = 90;
   const base = [];
-  const positions = new Float32Array(count * 3);
-  for (let i = 0; i < count; i += 1) {
+  for (let i = 0; i < 90; i += 1) {
     const onTerrace = rng.chance(0.6);
     const x = onTerrace ? rng.range(PLATEAU.x0 + 0.5, PLATEAU.x1 - 0.5) : rng.range(-17, -3);
     const z = onTerrace ? rng.range(PLATEAU.z0 + 0.5, PLATEAU.z1) : rng.range(2.6, 7);
     const y = (onTerrace ? PLATEAU.top : 0) + rng.range(0.3, 1.8);
     base.push([x, y, z, rng.range(0, 10)]);
   }
+  base.push(...extra);
+  const count = base.length;
+  const positions = new Float32Array(count * 3);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   const mat = new THREE.PointsMaterial({

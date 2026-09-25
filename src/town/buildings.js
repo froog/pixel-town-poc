@@ -18,6 +18,9 @@ export const PALETTE = {
   torii: 0xd4432c,
 };
 
+// Footprints {x, z, w, d, ry} that the first-person walker can't enter.
+export const solids = [];
+
 const cyl6 = new THREE.CylinderGeometry(1, 1, 1, 6);
 const cyl8 = new THREE.CylinderGeometry(1, 1, 1, 8);
 const sphere = new THREE.IcosahedronGeometry(1, 0);
@@ -58,6 +61,7 @@ export function house(B, rng, opts) {
   const roof = opts.roof ?? (rng.chance(0.72) ? rng.pick(PALETTE.roofBlue) : rng.pick(PALETTE.roofOther));
   const { lo, hi } = groundRange(x, z, w + 0.3, d + 0.3, ry);
   const base = hi + 0.12;
+  solids.push({ x, z, w: w + 0.3, d: d + 0.3, ry });
 
   B.at(x, 0, z, ry, () => {
     B.box('solid', w + 0.22, base - lo + 0.4, d + 0.22, 0, (base + lo - 0.4) / 2, 0, PALETTE.stone, { jitter: 0.08 });
@@ -150,6 +154,7 @@ export function house(B, rng, opts) {
 export function garageHouse(B, x, z) {
   const w = 2.5;
   const d = 3.0;
+  solids.push({ x, z, w: w + 0.3, d: d + 0.3, ry: 0 });
   B.at(x, 0, z, 0, () => {
     B.block('solid', w, 2.9, d, 0, 0, 0, 0xeae6da);
     B.block('solid', w + 0.12, 0.16, d + 0.12, 0, 2.9, 0, 0x2f5fa8);
@@ -287,6 +292,7 @@ export function shrineComplex(B, rng, { procedural = true } = {}) {
 
 export function shrineHall(B) {
   const top = PLATEAU.top;
+  solids.push({ x: SHRINE.x, z: SHRINE.z - 0.1, w: 4.6, d: 3.6, ry: 0 });
   B.at(SHRINE.x, top, SHRINE.z, 0, () => {
     B.block('solid', 4.4, 0.3, 3.9, 0, 0, 0, 0xa6a69a, { jitter: 0.05 });
     for (const sx of [-1.5, -0.5, 0.5, 1.5]) for (const sz of [-1.3, 0, 1.3]) {
@@ -372,6 +378,7 @@ export function station(B, group) {
   B.box('solid', x1 - x0 - 1.2, 0.05, 0.05, (x0 + x1) / 2 + 0.6, top + 0.45, z1 - 0.06, 0x3d6b52);
 
   // little ticket office
+  solids.push({ x: 17.4, z: (z0 + z1) / 2 + 0.05, w: 2.3, d: 1.9, ry: 0 });
   B.at(17.4, top, (z0 + z1) / 2 + 0.05, 0, () => {
     B.block('solid', 2.0, 1.8, 1.6, 0, 0, 0, 0xf0ead8);
     B.geo('solid', hipGeometry(2.5, 2.1, 0.7), 0, 1.8, 0, 0x2f5fa8);

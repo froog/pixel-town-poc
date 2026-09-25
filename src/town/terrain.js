@@ -47,7 +47,7 @@ export function rawHeight(x, z) {
   // gentle undulation on the slope and hills
   h += (fbm(x * 0.07 + 11, z * 0.07 - 3, 3) - 0.5) * 1.4 * slope;
   const left = smoothstep(-17, -34, x);
-  const ridge = smoothstep(20, 37, x) * (1 - smoothstep(58, 72, x));
+  const ridge = smoothstep(20, 37, x) * (1 - smoothstep(55, 66, x));
   const hillNoise = fbm(x * 0.05, z * 0.05 + 40, 4);
   h += left * (9 + hillNoise * 7) * smoothstep(-44, -24, z);
   h += ridge * (9 + hillNoise * 8) * smoothstep(-44, -22, z);

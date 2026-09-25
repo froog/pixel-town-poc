@@ -11,6 +11,8 @@ with procedural shrine-context roads and trees.
   pixel/outline post-process). It can show the TripoSR shrine GLB in place
   of the procedural shrine. The older single-asset viewer moved to
   `shrine-viewer.html` / `src/shrine-viewer.js`.
+- The world now extends east through the Yamate road tunnel into a rural
+  valley (`src/town/rural.js`), with first-person walking (`src/town/walk.js`).
 
 - `scripts/parse_scene.py` validates the source image, records dimensions, and
   writes a stub scene inventory to `assets/scene_parse.json`.

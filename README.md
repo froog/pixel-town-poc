@@ -19,9 +19,20 @@
 - one button swaps the procedural shrine for the TripoSR pipeline asset
   (`shrine_01_simple_clean.glb`), so generated assets can be judged in context
 - optional synthesised soundscape (surf, cicadas, crickets, crossing bell)
+- **Yamate (山手)**: road B climbs through the Yamate tunnel into a farming
+  valley: thatched minka and kura, paddies with drying racks and scarecrows,
+  a river with a water wheel, bridge and egrets, greenhouses, a bamboo grove,
+  a path of a thousand torii, a temple with a three-storey pagoda, cedar forest,
+  and a community bus that drives between the town and the valley
+- **first-person walking** (`F` or the Walk button): WASD + mouse look,
+  Shift to run; on phones, left thumb walks and right thumb looks. You follow
+  stairs, the platform, the tunnels and the bridge; buildings and water block you
+- the tram's doors slide open at the platform; railway and road tunnels are
+  arched tubes with stone portals and sodium lamps; swings and power lines
+  sway in the breeze
 
 Run: `python3 -m http.server 8010`, then open `http://localhost:8010`.
-Keys: `1-5` cameras, `N` day/night, `T` hurry the tram, `[ ]` pixel size,
+Keys: `1-6` cameras, `F` walk, `N` day/night, `T` hurry the tram, `[ ]` pixel size,
 `H` hide UI, `P` save a postcard PNG, `space` pause time.
 
 The previous single-asset viewer (rotation controls) now lives at
@@ -31,9 +42,13 @@ The previous single-asset viewer (rotation controls) now lives at
 | --- | --- | --- |
 | ![](docs/screenshots/diorama-dusk.png) | ![](docs/screenshots/street-night.png) | ![](docs/screenshots/shrine-triposr.png) |
 
+| Yamate valley | Walking the torii path | Tram doors open |
+| --- | --- | --- |
+| ![](docs/screenshots/yamate-valley.png) | ![](docs/screenshots/walk-torii.png) | ![](docs/screenshots/tram-doors.png) |
+
 Code: `src/main.js` composes the scene; `src/town/` holds the modules
-(terrain + sea shader, sky, buildings, props, life/traffic, pixel pass,
-audio). Static geometry is merged per material bucket by
+(terrain + sea shader, sky, buildings, props, tunnels, the Yamate valley in
+`rural.js`, life/traffic, first-person `walk.js`, pixel pass, audio). Static geometry is merged per material bucket by
 `src/town/batcher.js`, so the whole town is a handful of draw calls.
 
 ---

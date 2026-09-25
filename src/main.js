@@ -19,6 +19,8 @@ import { PixelPass } from './town/pixelPass.js';
 import { updateSigns } from './town/signs.js';
 import { tubeMaterial } from './town/tunnel.js';
 import { Soundscape } from './town/audio.js';
+import { buildRural } from './town/rural.js';
+import { createWalker } from './town/walk.js';
 import { PLATEAU, PLATFORM, SHRINE, STAIRS, STATION_STOP_X } from './town/layout.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -124,7 +126,7 @@ vendingMachine(B, rng, 4.3, -4.12, 0, 0xe8e8e0);
 recycleBins(B, 5.0, -4.0);
 postBox(B, -2.3, 7.8);
 curveMirror(B, 2.5, -0.1, -0.7);
-playground(B, 7.2, 4.8);
+const swings = playground(B, world, 7.2, 4.8);
 claim(7.2, 4.8, 3.6);
 
 // town houses on the slope down to the harbour
@@ -212,6 +214,7 @@ for (let i = 0; i < 1400; i += 1) {
   if (Math.abs(x) < 3.2 && z < 34) continue;
   if (Math.abs(z - TRACK_Z) < 2 && x > -24 && x < 29) continue;
   if (Math.abs(z + 1.9) < 2.3 && x > 1) continue;
+  if (x > 54) continue; // Yamate plants its own forest
   if (!free(x, z, 0.8)) continue;
   const s = rng.range(0.8, 1.5) * (hilly ? 1.1 : 0.9);
   if (rng.chance(0.4)) pineTree(B, rng, x, z, s);
@@ -219,8 +222,11 @@ for (let i = 0; i < 1400; i += 1) {
   claim(x, z, 0.5);
 }
 
+// Yamate valley beyond the road tunnel
+const rural = buildRural(B, decor, rng, world);
+
 // utility poles + wires
-const chains = [];
+const chains = [rural.chain];
 const chainA = [6.6, 0.4, -10.4, -16, -21.6, -27.2].map((z, i) => utilityPole(B, 2.45, z, 0, { lamp: i % 2 === 0, transformer: i === 1 }));
 chains.push(chainA);
 const chainB = [8.2, 14.6, 21, 27.4, 33.8].map((x, i) => utilityPole(B, x, 0.6, Math.PI / 2, { lamp: i % 2 === 0 }));
@@ -240,7 +246,7 @@ const crossing = createCrossing(world);
 const traffic = createTraffic(world);
 const boats = createBoats(world);
 const gulls = createGulls(world);
-const fireflies = createFireflies(world);
+const fireflies = createFireflies(world, rural.fireflySpots);
 const beam = createLighthouseBeam(world, beamPos);
 const cat = createCat(world, -4.9, 0.98, 2.2);
 
@@ -254,6 +260,7 @@ const nightLights = [
   [0xfff0c8, 2.45, 3.2, 7.6, 8],
   [0xfff0c8, -2.5, 3.2, 9.8, 8],
   [0xfff0c8, 2.45, 3.2, -10.4, 8],
+  ...rural.lights,
 ].map(([c, x, y, z, s]) => {
   const l = new THREE.PointLight(c, 0, 9, 1.6);
   l.position.set(x, y, z);
@@ -320,11 +327,13 @@ const PRESETS = {
   station: { pos: [23, 6.6, 7.5], target: [10.5, 0.8, -6.2], label: 'Station' },
   harbour: { pos: [17, 11, -11], target: [0, -2.6, -34], label: 'Harbour' },
   diorama: { pos: [46, 42, 38], target: [0, -1, -8], label: 'Diorama' },
+  yamate: { pos: [96, 19, 50], target: [128, 3, 10], label: 'Yamate' },
 };
 let tween = null;
 function goTo(name, instant = false) {
   const p = PRESETS[name];
   if (!p) return;
+  if (walker.active) walker.exit();
   document.querySelectorAll('[data-cam]').forEach((b) => b.classList.toggle('on', b.dataset.cam === name));
   const to = { pos: new THREE.Vector3(...p.pos), target: new THREE.Vector3(...p.target) };
   if (instant) {
@@ -336,6 +345,51 @@ function goTo(name, instant = false) {
   tween = { from: { pos: camera.position.clone(), target: controls.target.clone() }, to, t: 0 };
 }
 
+// ------------------------------------------------------------------ walking
+
+const orbitView = { pos: new THREE.Vector3(), target: new THREE.Vector3() };
+const walker = createWalker({
+  camera,
+  canvas: renderer.domElement,
+  onZone: (name) => toast(name),
+  onExit: () => {
+    document.body.classList.remove('walking');
+    $('#walk').classList.remove('on');
+    camera.fov = 38;
+    camera.near = 0.3;
+    camera.updateProjectionMatrix();
+    camera.position.copy(orbitView.pos);
+    controls.target.copy(orbitView.target);
+    controls.enabled = true;
+    controls.update();
+  },
+});
+function toggleWalk() {
+  if (walker.active) {
+    walker.exit();
+    return;
+  }
+  tween = null;
+  orbitView.pos.copy(camera.position);
+  orbitView.target.copy(controls.target);
+  controls.enabled = false;
+  controls.autoRotate = false;
+  $('#orbit').classList.remove('on');
+  camera.fov = 62;
+  camera.near = 0.05;
+  camera.updateProjectionMatrix();
+  document.body.classList.add('walking');
+  $('#walk').classList.add('on');
+  document.querySelectorAll('[data-cam]').forEach((b) => b.classList.remove('on'));
+  // start near whatever the camera was looking at
+  const t = controls.target;
+  if (t.x > 62) walker.enter(66, -2.9, -Math.PI / 2);
+  else if (t.x < -6 && t.z > -6) walker.enter(STAIRS.x, 7.5, 0);
+  else if (t.x > 6 && t.z > -8) walker.enter(9.2, -5.1, -1.2);
+  else if (t.z < -20) walker.enter(-2.2, -24, Math.PI);
+  else walker.enter(-2.2, 10, 0);
+}
+
 // ------------------------------------------------------------------ time of day
 
 const state = {
@@ -345,6 +399,7 @@ const state = {
   night: 0,
 };
 const tmpDir = new THREE.Vector3();
+const lightDir = new THREE.Vector3(0.3, 1, -0.2).normalize();
 function applyTimeOfDay() {
   const s = sampleSky(state.hour);
   state.night = s.night;
@@ -356,10 +411,9 @@ function applyTimeOfDay() {
   sky.material.uniforms.uSunDir.value.copy(tmpDir);
 
   const up = tmpDir.y > -0.05;
-  const lightDir = up ? tmpDir.clone() : tmpDir.clone().negate();
+  lightDir.copy(up ? tmpDir : tmpDir.clone().negate());
   lightDir.y = Math.max(lightDir.y, 0.18);
   lightDir.normalize();
-  sun.position.copy(sun.target.position).addScaledVector(lightDir, 70);
   sun.color.copy(up ? s.sun : new THREE.Color(0x8fa8ff));
   sun.intensity = up ? s.sunIntensity * THREE.MathUtils.smoothstep(tmpDir.y, -0.05, 0.12) + (1 - THREE.MathUtils.smoothstep(tmpDir.y, -0.05, 0.12)) * 0.35 : 0.35;
   hemi.color.copy(s.hemiSky);
@@ -463,11 +517,17 @@ $('#source-full').addEventListener('click', () => $('#source-full').classList.re
 $('#postcard').addEventListener('click', () => {
   wantPostcard = true;
 });
+$('#walk').addEventListener('click', toggleWalk);
 $('#hide').addEventListener('click', () => document.body.classList.toggle('bare'));
 
 window.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') return;
   const k = e.key.toLowerCase();
+  if (k === 'f') {
+    toggleWalk();
+    return;
+  }
+  if (walker.active && 'wasd'.includes(k)) return;
   if (k === ' ') {
     togglePlay();
     e.preventDefault();
@@ -482,7 +542,7 @@ window.addEventListener('keydown', (e) => {
     tram.skip(20);
     toast('Tram schedule +20s');
   } else if (k === 'p') wantPostcard = true;
-  else if (k >= '1' && k <= '5') goTo(Object.keys(PRESETS)[Number(k) - 1]);
+  else if (k >= '1' && k <= '6') goTo(Object.keys(PRESETS)[Number(k) - 1]);
 });
 
 let wantPostcard = false;
@@ -525,14 +585,19 @@ function frame() {
     applyTimeOfDay();
   }
 
-  if (tween) {
+  if (walker.active) walker.update(dt);
+  else if (tween) {
     tween.t = Math.min(1, tween.t + dt / 1.8);
     const k = tween.t < 0.5 ? 4 * tween.t ** 3 : 1 - (-2 * tween.t + 2) ** 3 / 2;
     camera.position.lerpVectors(tween.from.pos, tween.to.pos, k);
     controls.target.lerpVectors(tween.from.target, tween.to.target, k);
     if (tween.t >= 1) tween = null;
   }
-  controls.update();
+  if (!walker.active) controls.update();
+  // shadows follow whatever we're looking at
+  const focus = walker.active ? camera.position : controls.target;
+  sun.target.position.set(focus.x, 0, focus.z);
+  sun.position.copy(sun.target.position).addScaledVector(lightDir, 70);
 
   tram.update(elapsed, dt);
   crossing.update(tram.crossing, elapsed, dt);
@@ -542,6 +607,8 @@ function frame() {
   fireflies.update(elapsed, state.night);
   beam.update(elapsed, state.night);
   cat.update(elapsed);
+  swings(elapsed);
+  rural.update(elapsed);
   clouds.userData.update(dt);
   sound.update(elapsed, state.night, tram.crossing, 1 - Math.min(1, camera.position.distanceTo(new THREE.Vector3(0, 0, TRACK_Z)) / 60));
 
@@ -567,4 +634,4 @@ $('#loading').classList.add('done');
 frame();
 
 // handy for poking around from the console
-window.town = { applyTimeOfDay, scene, camera, controls, state, tram, traffic, pixel, staticMeshes, goTo, setShrineMode, roadBHeight };
+window.town = { heightAt, walker, toggleWalk, applyTimeOfDay, scene, camera, controls, state, tram, traffic, pixel, staticMeshes, goTo, setShrineMode, roadBHeight };

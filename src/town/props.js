@@ -5,6 +5,7 @@ import {
 } from './terrain.js';
 import { tunnel } from './tunnel.js';
 import { makeSign } from './signs.js';
+import { shared, toonRamp } from './materials.js';
 import { PALETTE } from './buildings.js';
 import { ROAD_A, ROAD_B } from './layout.js';
 
@@ -274,19 +275,34 @@ export function wires(chains) {
         const dist = a[k].distanceTo(b[k]);
         const sag = 0.05 * dist + 0.1;
         const n = Math.max(6, Math.ceil(dist * 1.2));
-        let prev = a[k];
+        let prev = { pos: a[k], sag: 0 };
         for (let j = 1; j <= n; j += 1) {
           const t = j / n;
           const p = a[k].clone().lerp(b[k], t);
           p.y -= Math.sin(t * Math.PI) * sag;
-          pts.push(prev, p);
-          prev = p;
+          const cur = { pos: p, sag: Math.sin(t * Math.PI) * Math.min(1.6, dist / 7) };
+          pts.push(prev, cur);
+          prev = cur;
         }
       }
     }
   }
-  const g = new THREE.BufferGeometry().setFromPoints(pts);
-  const lines = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x3a4250, transparent: true, opacity: 0.85 }));
+  const g = new THREE.BufferGeometry().setFromPoints(pts.map((p) => p.pos ?? p));
+  g.setAttribute('sag', new THREE.Float32BufferAttribute(pts.map((p) => p.sag ?? 0), 1));
+  const material = new THREE.LineBasicMaterial({ color: 0x3a4250, transparent: true, opacity: 0.85 });
+  // wires swing gently, most at mid-span
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = shared.uTime;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float sag;\nuniform float uTime;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        float ph = position.x * 0.07 + position.z * 0.05;
+        float gust = 0.55 + 0.45 * sin(uTime * 0.31 + ph);
+        transformed.x += sin(uTime * 1.25 + ph) * 0.07 * sag * gust;
+        transformed.z += cos(uTime * 1.05 + ph * 1.3) * 0.07 * sag * gust;
+        transformed.y += sin(uTime * 1.6 + ph) * 0.02 * sag;`);
+  };
+  const lines = new THREE.LineSegments(g, material);
   lines.name = 'wires';
   return lines;
 }
@@ -413,7 +429,35 @@ export function stonePillar(B, group, x, z, text) {
   group.add(s);
 }
 
-export function playground(B, x, z) {
+export function playground(B, group, x, z) {
+  // swings hang from pivots so they can drift in the breeze
+  const frame = new THREE.Group();
+  frame.position.set(x, 0, z);
+  frame.rotation.y = 0.3;
+  group.add(frame);
+  const chainMat = new THREE.MeshToonMaterial({ color: 0x888888, gradientMap: toonRamp });
+  const seatMat = new THREE.MeshToonMaterial({ color: 0xe8d040, gradientMap: toonRamp });
+  const swings = [1.0, 1.8].map((sx, i) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(sx, 1.8, -0.6);
+    for (const dx of [-0.15, 0.15]) {
+      const chain = new THREE.Mesh(new THREE.BoxGeometry(0.02, 1.3, 0.02), chainMat);
+      chain.position.set(dx, -0.65, 0);
+      pivot.add(chain);
+    }
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.05, 0.2), seatMat);
+    seat.position.y = -1.3;
+    seat.castShadow = true;
+    pivot.add(seat);
+    frame.add(pivot);
+    return { pivot, phase: i * 1.7 };
+  });
+  const update = (t) => {
+    for (const s of swings) {
+      const gust = 0.5 + 0.5 * Math.sin(t * 0.23 + s.phase);
+      s.pivot.rotation.x = Math.sin(t * 1.9 + s.phase) * 0.05 * gust + Math.sin(t * 0.7 + s.phase * 2) * 0.02;
+    }
+  };
   B.at(x, 0, z, 0.3, () => {
     B.block('solid', 5.4, 0.04, 3.8, 0, 0, 0, 0xe0cc9a);
     // slide
@@ -424,11 +468,6 @@ export function playground(B, x, z) {
     // swings
     for (const sx of [0.6, 2.2]) B.block('solid', 0.08, 1.8, 0.08, sx, 0, -0.6, 0x4a8ad8, { rz: 0 });
     B.box('solid', 1.7, 0.08, 0.08, 1.4, 1.8, -0.6, 0x4a8ad8);
-    for (const sx of [1.0, 1.8]) {
-      B.box('solid', 0.02, 1.3, 0.02, sx - 0.15, 1.15, -0.6, 0x888888);
-      B.box('solid', 0.02, 1.3, 0.02, sx + 0.15, 1.15, -0.6, 0x888888);
-      B.box('solid', 0.4, 0.05, 0.2, sx, 0.5, -0.6, 0xe8d040);
-    }
     // sandbox + panda spring rider
     B.block('solid', 1.4, 0.15, 1.2, 1.4, 0, 1.0, 0x9a7a5a);
     B.block('solid', 1.2, 0.16, 1.0, 1.4, 0.001, 1.0, 0xf0dca8);
@@ -438,6 +477,7 @@ export function playground(B, x, z) {
     B.box('solid', 0.08, 0.08, 0.08, -0.2, 0.82, 1.5, 0x1a1a1a);
     B.geo('solid', cyl8, -0.3, 0.15, 1.2, 0xd0d0d0, { sx: 0.06, sy: 0.3, sz: 0.06 });
   });
+  return update;
 }
 
 // ---------------------------------------------------------------- far scenery
@@ -475,7 +515,7 @@ export function mountains(rng) {
   // headlands wrapping the bay
   for (const side of [-1, 1]) {
     for (let i = 0; i < 7; i += 1) {
-      const x = side * (78 + rng.range(-6, 18));
+      const x = side < 0 ? -(78 + rng.range(-6, 18)) : 216 + rng.range(-6, 18);
       const z = 30 - i * 22 + rng.range(-5, 5);
       addPeak(x, z, rng.range(18, 30), rng.range(14, 26), rng.pick([0x3a7a3a, 0x2f6a34, 0x4a8a40]));
     }
@@ -530,19 +570,20 @@ export function harbour(B, rng) {
 
 export { mat4 };
 
-// Terraced rice paddies: raised earth bunds around flooded plots with rows
-// of young rice.
+// Rice paddies: raised earth bunds around flooded plots with rows of rice.
+export function paddyCell(B, rng, x, z, cell = 3.6) {
+  const y = heightAt(x + cell / 2, z + cell / 2);
+  const young = rng.chance(0.7);
+  B.block('solid', cell, 0.1, cell, x + cell / 2, y - 0.04, z + cell / 2, 0x8a7048);
+  B.box('glow', cell - 0.3, 0.02, cell - 0.3, x + cell / 2, y + 0.07, z + cell / 2, young ? 0x7cb0a8 : 0x9cc860, { lit: 0 });
+  for (let r = 0; r < 7; r += 1) {
+    B.box('foliage', cell - 0.6, 0.12, 0.08, x + cell / 2, y + 0.12, z + 0.5 + r * ((cell - 1) / 6),
+      young ? 0x6aa84a : 0x8cc050, { sway: 0.35 });
+  }
+}
+
 export function ricePaddies(B, rng, x0, z0, x1, z1, cell = 3.6) {
   for (let x = x0; x + cell <= x1 + 0.01; x += cell) {
-    for (let z = z0; z + cell <= z1 + 0.01; z += cell) {
-      const y = heightAt(x + cell / 2, z + cell / 2);
-      const young = rng.chance(0.7);
-      B.block('solid', cell, 0.1, cell, x + cell / 2, y - 0.04, z + cell / 2, 0x8a7048);
-      B.box('glow', cell - 0.3, 0.02, cell - 0.3, x + cell / 2, y + 0.07, z + cell / 2, young ? 0x7cb8b0 : 0x9cc860, { lit: 0 });
-      for (let r = 0; r < 7; r += 1) {
-        B.box('foliage', cell - 0.6, 0.12, 0.08, x + cell / 2, y + 0.12, z + 0.5 + r * ((cell - 1) / 6),
-          young ? 0x6aa84a : 0x8cc050, { sway: 0.35 });
-      }
-    }
+    for (let z = z0; z + cell <= z1 + 0.01; z += cell) paddyCell(B, rng, x, z, cell);
   }
 }
