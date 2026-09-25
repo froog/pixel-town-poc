@@ -35,7 +35,12 @@
   sway in the breeze
 
 Run: `python3 scripts/serve.py 8010`, then open `http://localhost:8010`
-(it disables caching so phones never mix stale modules). Add `?lite` for a
+(it disables caching so phones never mix stale modules).
+
+Viewport log: the page posts its camera state (position, heading, zone, time,
+tram) to `logs/latest.json` and `logs/viewport.jsonl` whenever the view changes.
+`B` or 🚩 flags a view with a note and screenshot into `logs/flags/`. Every
+entry has a `link` with `#view=…` that reopens that exact viewpoint. Add `?lite` for a
 lighter build; touch devices get it automatically.
 Keys: `1-6` cameras, `F` walk, `N` day/night, `T` hurry the tram, `[ ]` pixel size,
 `H` hide UI, `P` save a postcard PNG, `space` pause time.
@@ -264,7 +269,7 @@ TripoSR vertex colors. Its final browser rotation is stored in
 ### 5. Preview in Three.js
 
 ```bash
-python3 -m http.server 8010
+python3 scripts/serve.py 8010
 ```
 
 Then open:

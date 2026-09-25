@@ -20,7 +20,7 @@ import { updateSigns } from './town/signs.js';
 import { tubeMaterial } from './town/tunnel.js';
 import { Soundscape } from './town/audio.js';
 import { buildRural } from './town/rural.js';
-import { createWalker } from './town/walk.js';
+import { createWalker, zoneAt } from './town/walk.js';
 import { DENSITY, LITE } from './town/quality.js';
 import { PLATEAU, PLATFORM, SHRINE, STAIRS, STATION_STOP_X } from './town/layout.js';
 
@@ -531,6 +531,7 @@ $('#postcard').addEventListener('click', () => {
   wantPostcard = true;
 });
 $('#walk').addEventListener('click', toggleWalk);
+$('#flag').addEventListener('click', flagView);
 $('#hide').addEventListener('click', () => document.body.classList.toggle('bare'));
 
 window.addEventListener('keydown', (e) => {
@@ -555,10 +556,97 @@ window.addEventListener('keydown', (e) => {
     tram.skip(20);
     toast('Tram schedule +20s');
   } else if (k === 'p') wantPostcard = true;
+  else if (k === 'b') flagView();
   else if (k >= '1' && k <= '6') goTo(Object.keys(PRESETS)[Number(k) - 1]);
 });
 
 let wantPostcard = false;
+let wantFlag = null;
+
+// ------------------------------------------------------------------ viewport log
+// Every couple of seconds (when something changed) the page posts where the
+// camera is to scripts/serve.py, so a view can be discussed and replayed.
+// A 🚩 flag adds a note and a screenshot. `#view=<json>` restores a view.
+
+const round = (v, d = 2) => Math.round(v * 10 ** d) / 10 ** d;
+const sessionId = Math.random().toString(36).slice(2, 8);
+function viewState() {
+  const e = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+  const heading = (((-THREE.MathUtils.radToDeg(e.y)) % 360) + 360) % 360;
+  const st = {
+    session: sessionId,
+    mode: walker.active ? 'walk' : 'orbit',
+    pos: camera.position.toArray().map((v) => round(v)),
+    target: walker.active ? null : controls.target.toArray().map((v) => round(v)),
+    yaw: round(e.y, 3),
+    pitch: round(e.x, 3),
+    heading: round(heading, 1),
+    fov: camera.fov,
+    zone: zoneAt(camera.position.x, camera.position.z, 0),
+    hour: round(state.hour),
+    playing: state.playing,
+    tram: { x: round(tram.x, 1), stop: tram.stop, doors: round(tram.doorsOpen ?? 0) },
+    pixel: pixel.enabled ? pixel.pixelSize : 0,
+    outlines: pixel.outlines,
+    shrine: shrineMode,
+    lite: LITE,
+    screen: [window.innerWidth, window.innerHeight, window.devicePixelRatio],
+    ua: navigator.userAgent.replace(/^Mozilla\/5.0 /, '').slice(0, 140),
+  };
+  st.link = `${location.origin}${location.pathname}#view=${encodeURIComponent(JSON.stringify(replayable(st)))}`;
+  return st;
+}
+function replayable(st) {
+  return { mode: st.mode, pos: st.pos, target: st.target, yaw: st.yaw, pitch: st.pitch, hour: st.hour };
+}
+function applyView(v) {
+  if (v.hour !== undefined) {
+    state.hour = v.hour;
+    state.playing = false;
+    $('#play').textContent = '▶';
+    applyTimeOfDay();
+  }
+  if (v.mode === 'walk') {
+    if (!walker.active) toggleWalk();
+    walker.enter(v.pos[0], v.pos[2], v.yaw);
+    const e = new THREE.Euler(v.pitch ?? 0, v.yaw, 0, 'YXZ');
+    camera.quaternion.setFromEuler(e);
+  } else {
+    if (walker.active) walker.exit();
+    tween = null;
+    camera.position.set(...v.pos);
+    controls.target.set(...(v.target ?? [0, 0, 0]));
+    controls.update();
+  }
+}
+
+let lastSent = '';
+let sendTimer = 0;
+function sendState(dt) {
+  sendTimer -= dt;
+  if (sendTimer > 0) return;
+  sendTimer = 2;
+  const st = viewState();
+  const key = JSON.stringify({ ...st, link: '', hour: Math.round(state.hour * 4), tram: null });
+  if (key === lastSent) return;
+  lastSent = key;
+  fetch('./api/state', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st), keepalive: true })
+    .catch(() => {});
+}
+function flagView() {
+  const note = window.prompt('What looks wrong here? (sent with a screenshot)', '');
+  if (note === null) return;
+  wantFlag = { note };
+}
+function sendFlag(note) {
+  const st = viewState();
+  const image = renderer.domElement.toDataURL('image/png');
+  fetch('./api/flag', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note, state: st, image }) })
+    .then((r) => r.json())
+    .then((r) => toast(r.ok ? `🚩 Flag sent (${r.id})` : 'Flag failed'))
+    .catch(() => toast('Flag failed: no log server'));
+}
+
 function savePostcard() {
   const src = renderer.domElement;
   const scale = pixel.enabled ? pixel.pixelSize : 1;
@@ -634,6 +722,12 @@ function frame() {
 
   renderer.shadowMap.needsUpdate = true;
   pixel.render(state.night);
+  sendState(dt);
+  if (wantFlag) {
+    const { note } = wantFlag;
+    wantFlag = null;
+    sendFlag(note);
+  }
   if (wantPostcard) {
     wantPostcard = false;
     savePostcard();
@@ -643,9 +737,17 @@ function frame() {
 
 resize();
 goTo('street', true);
+const viewParam = location.hash.match(/view=([^&]+)/);
 applyTimeOfDay();
 $('#loading').classList.add('done');
 frame();
+if (viewParam) {
+  try {
+    applyView(JSON.parse(decodeURIComponent(viewParam[1])));
+  } catch (error) {
+    console.warn('bad #view link', error);
+  }
+}
 
 // handy for poking around from the console
-window.town = { heightAt, walker, toggleWalk, applyTimeOfDay, scene, camera, controls, state, tram, traffic, pixel, staticMeshes, goTo, setShrineMode, roadBHeight };
+window.town = { viewState, applyView, heightAt, walker, toggleWalk, applyTimeOfDay, scene, camera, controls, state, tram, traffic, pixel, staticMeshes, goTo, setShrineMode, roadBHeight };
