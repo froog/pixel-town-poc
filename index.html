@@ -3,47 +3,161 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Pixel Town 3D Asset POC</title>
+  <title>Umimi-chō · Pixel Town</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Silkscreen&display=swap" rel="stylesheet">
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #87d7f4; font-family: system-ui, sans-serif; }
-    #app { width: 100vw; height: 100vh; }
-    #hud {
-      position: fixed; left: 12px; top: 12px; max-width: 420px;
-      color: #10212e; background: rgba(255,255,255,.78); padding: 10px 12px; border-radius: 8px;
-      font-size: 13px; line-height: 1.35; backdrop-filter: blur(6px);
-      box-shadow: 0 8px 24px rgba(18, 52, 67, .16);
+    :root {
+      --ink: #14233a;
+      --paper: #fbf6e8;
+      --paper-2: #f1e8d0;
+      --blue: #2f5fa8;
+      --red: #d4432c;
+      --green: #3f7d4a;
+      --shadow: 0 4px 0 rgba(20, 35, 58, .35);
     }
-    #hud b { color: #0a5f86; }
-    #hud kbd { background: rgba(16,33,46,.10); padding: 1px 5px; border-radius: 4px; }
-    #status { margin-top: 6px; color: #4a6575; }
-    #rotation-controls {
-      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
-      margin-top: 10px;
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1430; font-family: 'DotGothic16', system-ui, sans-serif; color: var(--ink); }
+    #app { position: fixed; inset: 0; }
+    #app canvas { display: block; }
+    .panel {
+      background: var(--paper);
+      border: 3px solid var(--ink);
+      box-shadow: var(--shadow);
+      border-radius: 2px;
     }
-    #rotation-controls label { display: grid; gap: 3px; font-weight: 700; }
-    #rotation-controls span { font-size: 12px; }
-    #rotation-controls input {
-      width: 100%; box-sizing: border-box; border: 1px solid rgba(16,33,46,.18);
-      border-radius: 6px; padding: 5px 6px; color: #10212e; background: rgba(255,255,255,.78);
-      font: 600 14px system-ui, sans-serif;
+    #title {
+      position: fixed; left: 16px; top: 16px; padding: 10px 16px 12px;
+      max-width: calc(100vw - 32px);
     }
-    .axis-x span { color: #b92f2f; }
-    .axis-y span { color: #1f7f42; }
-    .axis-z span { color: #2359b6; }
+    #title h1 { margin: 0; font-size: 34px; line-height: 1; letter-spacing: 2px; font-weight: 400; }
+    #title h1 small { font-family: 'Silkscreen', monospace; font-size: 13px; letter-spacing: 1px; color: var(--blue); margin-left: 8px; vertical-align: middle; }
+    #title p { margin: 6px 0 0; font-size: 13px; color: #4a5a6a; }
+    #clockbox { position: fixed; right: 16px; top: 16px; padding: 8px 14px; text-align: right; }
+    #clock { font-family: 'Silkscreen', monospace; font-size: 30px; line-height: 1; }
+    #period { font-size: 13px; color: var(--blue); margin-top: 2px; }
+    #tram { font-size: 12px; color: #4a5a6a; margin-top: 4px; white-space: nowrap; }
+
+    #dock {
+      position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+      display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; justify-content: center;
+      padding: 10px 14px; width: max-content; max-width: calc(100vw - 32px);
+    }
+    .group { display: flex; gap: 6px; align-items: center; }
+    .sep { width: 2px; align-self: stretch; background: var(--paper-2); }
+    button {
+      font: inherit; font-size: 13px; color: var(--ink); background: var(--paper-2);
+      border: 2px solid var(--ink); border-radius: 2px; padding: 4px 9px; cursor: pointer;
+      box-shadow: 0 2px 0 var(--ink); transition: transform .06s;
+    }
+    button:hover { background: #fff; }
+    button:active { transform: translateY(2px); box-shadow: none; }
+    button.on { background: var(--blue); color: #fff; }
+    #play { width: 36px; font-family: 'Silkscreen', monospace; }
+    input[type=range] { width: 170px; accent-color: var(--red); }
+    .label { font-size: 12px; color: #4a5a6a; }
+    #px { font-family: 'Silkscreen', monospace; min-width: 30px; text-align: center; }
+
+    #source {
+      position: fixed; right: 16px; bottom: 16px; width: 220px; padding: 4px; cursor: zoom-in;
+    }
+    #source img { display: block; width: 100%; image-rendering: pixelated; }
+    #source span { display: block; font-size: 11px; padding: 3px 2px 0; color: #4a5a6a; }
+    #source-full {
+      position: fixed; inset: 0; background: rgba(11, 20, 48, .82); display: none;
+      align-items: center; justify-content: center; cursor: zoom-out; padding: 24px;
+    }
+    #source-full.show { display: flex; }
+    #source-full img { max-width: 100%; max-height: 100%; border: 3px solid var(--paper); image-rendering: pixelated; }
+
+    #keys { position: fixed; left: 16px; bottom: 16px; padding: 8px 12px; font-size: 12px; line-height: 1.6; color: #4a5a6a; }
+    kbd { font-family: 'Silkscreen', monospace; font-size: 10px; background: var(--paper-2); border: 1px solid var(--ink); padding: 0 4px; color: var(--ink); }
+    #toast {
+      position: fixed; left: 50%; top: 20px; transform: translate(-50%, -80px); padding: 8px 14px;
+      transition: transform .25s;
+    }
+    #toast.show { transform: translate(-50%, 0); }
+    #loading {
+      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: #87c8ee; font-size: 22px; transition: opacity .6s; z-index: 5;
+    }
+    #loading.done { opacity: 0; pointer-events: none; }
+    body.bare .ui { display: none !important; }
+    #hide { position: fixed; right: 16px; top: 108px; font-size: 11px; padding: 2px 7px; }
+    body.bare #hide { display: block !important; opacity: .5; }
+
+    @media (max-width: 1180px) { #keys { display: none; } #source { width: 150px; bottom: auto; top: 108px; right: 16px; } #hide { top: 212px; } }
+    @media (max-width: 640px) {
+      #title { padding: 8px 10px; }
+      #title h1 { font-size: 22px; }
+      #title h1 small, #title p, #tram { display: none; }
+      #clockbox { padding: 6px 10px; }
+      #clock { font-size: 22px; }
+      #source { display: none; }
+      #hide { top: 96px; }
+      input[type=range] { width: 120px; }
+    }
   </style>
 </head>
 <body>
   <div id="app"></div>
-  <div id="hud">
-    <b>Pixel Town Shrine Blockout</b><br>
-    Drag to orbit. Scroll to zoom. Press <kbd>R</kbd> to reset. Axes: X red, Y green, Z blue.
-    <div id="rotation-controls">
-      <label class="axis-x"><span>X deg</span><input id="x-rotation" type="number" value="-90" step="15"></label>
-      <label class="axis-y"><span>Y deg</span><input id="y-rotation" type="number" value="0" step="15"></label>
-      <label class="axis-z"><span>Z deg</span><input id="z-rotation" type="number" value="45" step="15"></label>
-    </div>
-    <div id="status">Loading cleaned GLB...</div>
+  <div id="loading">海見町 · building the town…</div>
+
+  <div id="title" class="panel ui">
+    <h1>海見町<small>UMIMI-CHŌ</small></h1>
+    <p>A pixel-art seaside town, rebuilt in 3D from one panorama.</p>
   </div>
+
+  <div id="clockbox" class="panel ui">
+    <div id="clock">15:30</div>
+    <div id="period">昼 · afternoon</div>
+    <div id="tram">🚃</div>
+  </div>
+
+  <div id="dock" class="panel ui">
+    <div class="group">
+      <button id="play" title="Play / pause time (space)">❚❚</button>
+      <input id="time" type="range" min="0" max="23.99" step="0.01" value="15.5" aria-label="Time of day" />
+    </div>
+    <div class="sep"></div>
+    <div class="group">
+      <button data-cam="street" title="1">Street</button>
+      <button data-cam="shrine" title="2">Shrine</button>
+      <button data-cam="station" title="3">Station</button>
+      <button data-cam="harbour" title="4">Harbour</button>
+      <button data-cam="diorama" title="5">Diorama</button>
+      <button id="orbit" title="Slow orbit">⟳</button>
+    </div>
+    <div class="sep"></div>
+    <div class="group">
+      <span class="label">pixels</span>
+      <button id="px-down" title="[">−</button><span id="px">3×</span><button id="px-up" title="]">+</button>
+      <button id="outlines" class="on">Outlines</button>
+      <button id="dither" class="on">Dither</button>
+    </div>
+    <div class="sep"></div>
+    <div class="group">
+      <button id="shrine-mode" title="Swap the procedural shrine for the TripoSR pipeline asset">Shrine: built</button>
+      <button id="sound">♪ Sound</button>
+      <button id="postcard" title="Save a PNG (P)">📷</button>
+    </div>
+  </div>
+
+  <div id="source" class="panel ui" title="Source panorama">
+    <img src="./assets/source/panorama.png" alt="Source panorama" />
+    <span>source panorama · click to enlarge</span>
+  </div>
+  <div id="source-full"><img src="./assets/source/panorama.png" alt="Source panorama, enlarged" /></div>
+
+  <div id="keys" class="panel ui">
+    <kbd>1-5</kbd> cameras · <kbd>N</kbd> day/night · <kbd>T</kbd> hurry the tram<br>
+    <kbd>[ ]</kbd> pixel size · <kbd>H</kbd> hide UI · <kbd>P</kbd> postcard<br>
+    <a href="./shrine-viewer.html" style="color:inherit">asset viewer →</a>
+  </div>
+  <button id="hide" class="ui" title="Hide UI (H)">hide ui</button>
+  <div id="toast" class="panel"></div>
+
   <script type="importmap">
     {
       "imports": {

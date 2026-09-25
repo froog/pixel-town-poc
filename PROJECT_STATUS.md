@@ -6,6 +6,12 @@ with procedural shrine-context roads and trees.
 
 ## What Is Implemented
 
+- `index.html` + `src/main.js` + `src/town/*`: the Umimi-chō pixel-art town
+  diorama (procedural buildings, terrain, sea, day/night, tram, traffic,
+  pixel/outline post-process). It can show the TripoSR shrine GLB in place
+  of the procedural shrine. The older single-asset viewer moved to
+  `shrine-viewer.html` / `src/shrine-viewer.js`.
+
 - `scripts/parse_scene.py` validates the source image, records dimensions, and
   writes a stub scene inventory to `assets/scene_parse.json`.
 - `scripts/route_assets.py` writes route recommendations to

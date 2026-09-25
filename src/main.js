@@ -1,272 +1,568 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { Batcher } from './town/batcher.js';
+import { makeRng } from './town/rng.js';
+import { shared, toonRamp } from './town/materials.js';
+import { buildSea, buildTerrain, heightAt, roadBHeight, SEA, TRACK_Z } from './town/terrain.js';
+import { buildClouds, buildSkyDome, sampleSky, sunDirection } from './town/sky.js';
+import { garageHouse, groundRange, house, shrineComplex, shrineHall, station } from './town/buildings.js';
+import {
+  bigTree, bush, curveMirror, harbour, hydrangea, lighthouseIsland, lowWall, mountains, noticeBoard,
+  pineTree, playground, ricePaddies, postBox, railway, recycleBins, roads, roundTree, schoolSign, stonePillar,
+  utilityPole, vendingMachine, wires,
+} from './town/props.js';
+import {
+  createBoats, createCat, createCrossing, createFireflies, createGulls, createLighthouseBeam, createTraffic, createTram,
+} from './town/life.js';
+import { PixelPass } from './town/pixelPass.js';
+import { updateSigns } from './town/signs.js';
+import { Soundscape } from './town/audio.js';
+import { PLATEAU, PLATFORM, SHRINE, STAIRS, STATION_STOP_X } from './town/layout.js';
 
-const app = document.querySelector('#app');
-const statusEl = document.querySelector('#status');
-const rotationInputs = {
-  x: document.querySelector('#x-rotation'),
-  y: document.querySelector('#y-rotation'),
-  z: document.querySelector('#z-rotation'),
-};
-let shrineObject = null;
+const $ = (sel) => document.querySelector(sel);
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87d7f4);
-scene.fog = new THREE.Fog(0x87d7f4, 10, 24);
-
-const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.01, 100);
-const defaultCamera = new THREE.Vector3(3.65, 2.25, 6.4);
-camera.position.copy(defaultCamera);
+// ------------------------------------------------------------------ renderer
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.NoToneMapping;
-app.appendChild(renderer.domElement);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.shadowMap.autoUpdate = false;
+$('#app').appendChild(renderer.domElement);
 
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x9ad8f5, 60, 260);
+
+const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.3, 700);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.target.set(0, 0.72, 0);
-controls.minDistance = 2.2;
-controls.maxDistance = 12;
-controls.maxPolarAngle = Math.PI * 0.48;
+controls.dampingFactor = 0.08;
+controls.minDistance = 3;
+controls.maxDistance = 95;
+controls.maxPolarAngle = 1.48;
+controls.autoRotateSpeed = 0.35;
 
-const hemi = new THREE.HemisphereLight(0xbfeeff, 0x5c6e4f, 2.15);
+const pixel = new PixelPass(renderer, scene, camera);
+
+// ------------------------------------------------------------------ lights
+
+const hemi = new THREE.HemisphereLight(0xbfeeff, 0x5c6e4f, 1.4);
 scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff1c4, 2.4);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -42, right: 42, top: 42, bottom: -42, near: 1, far: 160 });
+sun.shadow.bias = -0.0006;
+sun.shadow.normalBias = 0.03;
+scene.add(sun, sun.target);
+sun.target.position.set(0, 0, -6);
 
-const sun = new THREE.DirectionalLight(0xfff1c4, 2.2);
-sun.position.set(3.5, 5, 2.5);
-scene.add(sun);
+// ------------------------------------------------------------------ world
 
-const fill = new THREE.DirectionalLight(0x8fd7ff, 0.8);
-fill.position.set(-4, 2.5, -3);
-scene.add(fill);
+const rng = makeRng(2026);
+const world = new THREE.Group();
+scene.add(world);
+const decor = new THREE.Group(); // textured signs etc.
+world.add(decor);
 
-const ground = new THREE.Mesh(
-  new THREE.CircleGeometry(5.8, 64),
-  new THREE.MeshStandardMaterial({ color: 0xbcd7a0, roughness: 0.9, metalness: 0 })
+const sky = buildSkyDome();
+sky.layers.set(1);
+scene.add(sky);
+const clouds = buildClouds();
+scene.add(clouds);
+
+const terrain = new THREE.Mesh(
+  buildTerrain(),
+  new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: toonRamp })
 );
-ground.rotation.x = -Math.PI / 2;
-ground.position.y = -0.015;
-scene.add(ground);
+terrain.receiveShadow = true;
+terrain.castShadow = true;
+terrain.name = 'terrain';
+world.add(terrain);
 
-const grid = new THREE.GridHelper(10, 32, 0x7ba0a0, 0x9fc8b4);
-grid.position.y = 0.002;
-grid.material.opacity = 0.22;
-grid.material.transparent = true;
-scene.add(grid);
+const sea = buildSea();
+world.add(sea);
 
-const axisGroup = new THREE.Group();
-axisGroup.position.set(-1.55, 0.02, -1.45);
-scene.add(axisGroup);
+const far = new THREE.Mesh(mountains(makeRng(8)), new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: toonRamp }));
+far.name = 'mountains';
+world.add(far);
 
-function createAxisLabel(text, color) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
-  const context = canvas.getContext('2d');
-  context.clearRect(0, 0, canvas.width, canvas.height);
-  context.fillStyle = 'rgba(255, 255, 255, 0.82)';
-  context.beginPath();
-  context.arc(64, 64, 46, 0, Math.PI * 2);
-  context.fill();
-  context.fillStyle = color;
-  context.font = '700 64px system-ui, sans-serif';
-  context.textAlign = 'center';
-  context.textBaseline = 'middle';
-  context.fillText(text, 64, 66);
+const B = new Batcher();
+const occupied = [];
+const free = (x, z, r) => occupied.every(([ox, oz, or]) => Math.hypot(x - ox, z - oz) > r + or);
+const claim = (x, z, r) => occupied.push([x, z, r]);
 
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
-  label.scale.set(0.28, 0.28, 1);
-  return label;
-}
+// roads, railway, station, shrine
+decor.add(...roads(B, rng));
+railway(B);
+station(B, decor);
+shrineComplex(B, rng, { procedural: false });
+claim((PLATEAU.x0 + PLATEAU.x1) / 2, (PLATEAU.z0 + PLATEAU.z1) / 2, 7);
+claim(STAIRS.x, 4.5, 2.5);
+claim(11, -5, 8);
 
-function addAxis(name, color, direction) {
-  const length = 1.25;
-  const dir = direction.clone().normalize();
-  const origin = new THREE.Vector3(0, 0, 0);
+const hallBatch = new Batcher();
+const plaque = shrineHall(hallBatch);
+const hall = new THREE.Group();
+hall.name = 'shrine:procedural';
+hallBatch.build(hall);
+hall.add(plaque);
+world.add(hall);
 
-  axisGroup.add(new THREE.ArrowHelper(dir, origin, length, color, 0.2, 0.12));
+// corner house, walls, street furniture
+garageHouse(B, -4.4, -3.9);
+claim(-4.4, -3.9, 2.2);
+lowWall(B, PLATEAU.x1, -2.95, 2.2);
+lowWall(B, -2.4, 2.2, -2.95, 0.9, { axis: 'z' });
+schoolSign(decor, -4.3, 0.55, 2.37);
+noticeBoard(B, decor, -8.3, 4.1, 0.25);
+stonePillar(B, decor, STAIRS.x - 2.2, 6.2, '夏山神社');
+vendingMachine(B, rng, 3.4, -4.12, 0, 0x2a62c8);
+vendingMachine(B, rng, 4.3, -4.12, 0, 0xe8e8e0);
+recycleBins(B, 5.0, -4.0);
+postBox(B, -2.3, 7.8);
+curveMirror(B, 2.5, -0.1, -0.7);
+playground(B, 7.2, 4.8);
+claim(7.2, 4.8, 3.6);
 
-  const label = createAxisLabel(name, `#${color.toString(16).padStart(6, '0')}`);
-  label.position.copy(dir.multiplyScalar(length + 0.22));
-  axisGroup.add(label);
-}
-
-addAxis('X', 0xd94242, new THREE.Vector3(1, 0, 0));
-addAxis('Y', 0x2b9f54, new THREE.Vector3(0, 1, 0));
-addAxis('Z', 0x2f6fd6, new THREE.Vector3(0, 0, 1));
-
-const roadMaterial = new THREE.MeshBasicMaterial({ color: 0x6f7d83, toneMapped: false });
-const roadEdgeMaterial = new THREE.MeshBasicMaterial({ color: 0xe6f0ee, toneMapped: false });
-const trunkMaterial = new THREE.MeshBasicMaterial({ color: 0x76512e, toneMapped: false });
-const leafMaterials = [
-  new THREE.MeshBasicMaterial({ color: 0x2f7a3e, toneMapped: false }),
-  new THREE.MeshBasicMaterial({ color: 0x3e9650, toneMapped: false }),
-  new THREE.MeshBasicMaterial({ color: 0x256b37, toneMapped: false }),
-];
-
-function addRoadSegment({ x, z, width, length, rotation = 0 }) {
-  const road = new THREE.Mesh(new THREE.BoxGeometry(width, 0.028, length), roadMaterial);
-  road.position.set(x, 0.012, z);
-  road.rotation.y = rotation;
-  scene.add(road);
-
-  const stripeCount = Math.max(2, Math.floor(length / 0.55));
-  for (let i = 0; i < stripeCount; i += 1) {
-    const offset = -length / 2 + 0.35 + i * 0.62;
-    const stripe = new THREE.Mesh(new THREE.BoxGeometry(width * 0.08, 0.012, 0.28), roadEdgeMaterial);
-    stripe.position.set(0, 0.018, offset);
-    road.add(stripe);
+// town houses on the slope down to the harbour
+for (let gz = -11; gz > -30; gz -= 3.9) {
+  for (let gx = -40; gx < 44; gx += 4.3) {
+    const x = gx + rng.range(-0.8, 0.8);
+    const z = gz + rng.range(-0.6, 0.6);
+    if (Math.abs(x) < 4.6) continue;
+    const h = heightAt(x, z);
+    if (h < SEA + 0.6 || h > 9) continue;
+    if (!rng.chance(0.8)) continue;
+    if (!free(x, z, 1.6)) continue;
+    const { lo, hi } = groundRange(x, z, 3, 2.6);
+    if (hi - lo > 1.6) continue;
+    house(B, rng, { x, z, ry: rng.range(-0.12, 0.12) });
+    claim(x, z, 1.7);
   }
 }
+// houses on the hills behind the shrine and to the east
+for (const [x0, x1, z0, z1] of [[-40, -19, -5, 14], [20, 42, 1.5, 14]]) {
+  for (let gz = z0; gz < z1; gz += 4.2) {
+    for (let gx = x0; gx < x1; gx += 4.4) {
+      const x = gx + rng.range(-0.8, 0.8);
+      const z = gz + rng.range(-0.6, 0.6);
+      if (heightAt(x, z) > 11 || !rng.chance(0.7) || !free(x, z, 1.7)) continue;
+      const { lo, hi } = groundRange(x, z, 3, 2.6);
+      if (hi - lo > 1.1) continue;
+      house(B, rng, { x, z, ry: rng.range(-0.3, 0.3) });
+      claim(x, z, 1.8);
+    }
+  }
+}
+// foreground streets
+for (const [x, z, ry] of [[-9, 10.5, 0.05], [-13.2, 11.2, -0.08], [-5.6, 12.8, 0], [11.5, 9, 0], [15.6, 8.6, 0.06], [19.8, 9.4, -0.05], [13.6, 13.5, 0]]) {
+  house(B, rng, { x, z, ry });
+  claim(x, z, 1.8);
+}
+// seaside row near the quay
+for (let x = -9; x <= 9; x += 3.4) {
+  if (Math.abs(x) < 3.5) continue;
+  if (!free(x, -27.6, 1.4)) continue;
+  house(B, rng, { x, z: -27.6, ry: Math.PI, floors: rng.pick([1, 2]), w: 2.4, d: 2.0 });
+  claim(x, -27.6, 1.6);
+}
+harbour(B, rng);
+ricePaddies(B, rng, -18.4, 15.6, -3.9, 30);
+ricePaddies(B, rng, 3.6, 16.6, 25.2, 30);
+claim(-11, 23, 8);
+claim(14, 23, 9);
+const beamPos = lighthouseIsland(B, 36, -64);
 
-function addTree({ x, z, scale = 1, leafIndex = 0 }) {
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.055 * scale, 0.075 * scale, 0.42 * scale, 6), trunkMaterial);
-  trunk.position.set(x, 0.21 * scale, z);
-  scene.add(trunk);
+// terrace trees + garden planting
+const T = PLATEAU.top;
+bigTree(B, rng, -16.3, -4.3, 1.1, T);
+bigTree(B, rng, -7.4, -4.4, 0.95, T);
+bigTree(B, rng, -16.6, 1.0, 0.85, T);
+roundTree(B, rng, -7.2, -0.8, 1.1, T);
+roundTree(B, rng, -14.9, -4.4, 1.0, T);
+pineTree(B, rng, -9.2, -4.8, 1.2, T);
+pineTree(B, rng, -15.2, -1.6, 1.1, T);
+for (let x = PLATEAU.x0 + 0.6; x < PLATEAU.x1; x += 0.9) {
+  if (Math.abs(x - STAIRS.x) < STAIRS.width / 2 + 0.7) continue;
+  hydrangea(B, rng, x + rng.range(-0.2, 0.2), PLATEAU.z1 + 0.55 + rng.range(-0.1, 0.2), rng.range(0.9, 1.2), 0);
+}
+for (let i = 0; i < 7; i += 1) {
+  hydrangea(B, rng, -6.0 + i * 0.5, 1.6 + rng.range(-0.3, 0.2), rng.range(0.8, 1.1), 0);
+}
+roundTree(B, rng, -5.4, 0.6, 1.2, 0);
+roundTree(B, rng, -3.4, 0.9, 0.9, 0);
+for (let i = 0; i < 6; i += 1) hydrangea(B, rng, STAIRS.x + 2.4 + i * 0.55, 6.6 + rng.range(-0.2, 0.2), 1, 0);
+for (let i = 0; i < 5; i += 1) hydrangea(B, rng, STAIRS.x - 4.6 + i * 0.55, 6.4 + rng.range(-0.2, 0.2), 1, 0);
+for (let i = 0; i < 6; i += 1) bush(B, rng, 2.9 + i * 0.6, 1.1, 1, 0.05);
+roundTree(B, rng, 4.2, 8.6, 1.15, 0);
+roundTree(B, rng, 10.6, 3.2, 1.3, 0);
+bigTree(B, rng, 3.8, 2.4, 0.8, 0);
 
-  const leaves = new THREE.Mesh(
-    new THREE.DodecahedronGeometry(0.26 * scale, 0),
-    leafMaterials[leafIndex % leafMaterials.length]
-  );
-  leaves.position.set(x, 0.55 * scale, z);
-  leaves.scale.set(0.9, 1.1, 0.9);
-  scene.add(leaves);
+// forests over the hills and between houses
+for (let i = 0; i < 1400; i += 1) {
+  const x = rng.range(-68, 68);
+  const z = rng.range(-46, 32);
+  const h = heightAt(x, z);
+  if (h < SEA + 0.8) continue;
+  const hilly = h > 1.4 || Math.abs(x) > 22;
+  if (!hilly && !rng.chance(0.08)) continue;
+  if (Math.abs(x) < 3.2 && z < 34) continue;
+  if (Math.abs(z - TRACK_Z) < 2 && x > -24 && x < 29) continue;
+  if (Math.abs(z + 1.9) < 2.3 && x > 1) continue;
+  if (!free(x, z, 0.8)) continue;
+  const s = rng.range(0.8, 1.5) * (hilly ? 1.1 : 0.9);
+  if (rng.chance(0.4)) pineTree(B, rng, x, z, s);
+  else roundTree(B, rng, x, z, s);
+  claim(x, z, 0.5);
 }
 
-function addProceduralSurroundings() {
-  addRoadSegment({ x: 0, z: 2.15, width: 1.0, length: 6.2, rotation: Math.PI / 2 });
-  addRoadSegment({ x: 2.15, z: 0.85, width: 0.75, length: 3.2, rotation: 0.42 });
-  addRoadSegment({ x: -1.65, z: 0.85, width: 0.62, length: 2.7, rotation: -0.55 });
+// utility poles + wires
+const chains = [];
+const chainA = [6.6, 0.4, -10.4, -16, -21.6, -27.2].map((z, i) => utilityPole(B, 2.45, z, 0, { lamp: i % 2 === 0, transformer: i === 1 }));
+chains.push(chainA);
+const chainB = [8.2, 14.6, 21, 27.4, 33.8].map((x, i) => utilityPole(B, x, 0.6, Math.PI / 2, { lamp: i % 2 === 0 }));
+chains.push([chainA[1], ...chainB]);
+const chainW = [16, 9.2].map((z) => utilityPole(B, -2.5, z, 0, { lamp: true }));
+chains.push(chainW);
+const wireLines = wires(chains);
+wireLines.layers.set(1);
+world.add(wireLines);
 
-  [
-    { x: -1.65, z: -0.75, scale: 0.95 },
-    { x: -1.25, z: -1.35, scale: 0.78 },
-    { x: -0.72, z: -1.08, scale: 0.86 },
-    { x: 1.12, z: -1.18, scale: 0.82 },
-    { x: 1.62, z: -0.62, scale: 1.0 },
-    { x: 2.08, z: -1.32, scale: 0.76 },
-    { x: -2.25, z: 0.18, scale: 0.72 },
-  ].forEach((tree, index) => addTree({ ...tree, leafIndex: index }));
-}
+const staticMeshes = B.build(world);
 
-addProceduralSurroundings();
+// ------------------------------------------------------------------ life
 
-const contactShadow = new THREE.Mesh(
-  new THREE.CircleGeometry(0.95, 32),
-  new THREE.MeshBasicMaterial({
-    color: 0x5d705c,
-    transparent: true,
-    opacity: 0.22,
-    depthWrite: false,
-  })
-);
-contactShadow.rotation.x = -Math.PI / 2;
-contactShadow.scale.set(1.25, 0.7, 1);
-contactShadow.position.y = 0.006;
-scene.add(contactShadow);
+const tram = createTram(world);
+const crossing = createCrossing(world);
+const traffic = createTraffic(world);
+const boats = createBoats(world);
+const gulls = createGulls(world);
+const fireflies = createFireflies(world);
+const beam = createLighthouseBeam(world, beamPos);
+const cat = createCat(world, -4.9, 0.98, 2.2);
 
-function applyBrowserMaterial(root) {
-  root.traverse((child) => {
-    if (!child.isMesh) return;
+// warm pools of light after dark
+const nightLights = [
+  [0xffb050, STAIRS.x - 1.9, T + 1.0, PLATEAU.z1 - 2.9, 7],
+  [0xffb050, STAIRS.x + 1.9, T + 1.0, PLATEAU.z1 - 2.9, 7],
+  [0xffb050, STAIRS.x, 1.0, PLATEAU.z1 + 3.6, 6],
+  [0xd8ecff, 3.9, 1.2, -3.3, 9],
+  [0xf8fff0, STATION_STOP_X, PLATFORM.top + 2.0, -5.3, 10],
+  [0xfff0c8, 2.45, 3.2, 7.6, 8],
+  [0xfff0c8, -2.5, 3.2, 9.8, 8],
+  [0xfff0c8, 2.45, 3.2, -10.4, 8],
+].map(([c, x, y, z, s]) => {
+  const l = new THREE.PointLight(c, 0, 9, 1.6);
+  l.position.set(x, y, z);
+  l.userData.strength = s;
+  world.add(l);
+  return l;
+});
 
-    child.castShadow = false;
-    child.receiveShadow = false;
+// ------------------------------------------------------------------ GLB shrine (pipeline asset)
 
-    const hasVertexColors = Boolean(child.geometry?.attributes?.color);
-    child.material = new THREE.MeshBasicMaterial({
-      vertexColors: hasVertexColors,
-      color: hasVertexColors ? 0xffffff : 0x9db3bf,
-      side: THREE.DoubleSide,
-      toneMapped: false,
-    });
+let glbShrine = null;
+let shrineMode = 'procedural';
+function loadGlbShrine() {
+  if (glbShrine) return Promise.resolve(glbShrine);
+  return new Promise((resolve, reject) => {
+    new GLTFLoader().load('./assets/generated/shrine_01_simple_clean.glb', (gltf) => {
+      const inner = gltf.scene;
+      inner.traverse((child) => {
+        if (!child.isMesh) return;
+        const hasColors = Boolean(child.geometry.attributes.color);
+        if (!child.geometry.attributes.normal) child.geometry.computeVertexNormals();
+        child.material = new THREE.MeshToonMaterial({ vertexColors: hasColors, color: hasColors ? 0xffffff : 0x9db3bf, gradientMap: toonRamp, side: THREE.DoubleSide });
+        child.castShadow = true;
+        child.receiveShadow = true;
+      });
+      // rotation recorded in shrine_01_simple_cleanup_meta.json
+      inner.rotation.set(THREE.MathUtils.degToRad(-90), 0, THREE.MathUtils.degToRad(45));
+      const box = new THREE.Box3().setFromObject(inner);
+      inner.position.sub(box.getCenter(new THREE.Vector3()));
+      inner.position.y -= new THREE.Box3().setFromObject(inner).min.y;
+      const wrap = new THREE.Group();
+      wrap.add(inner);
+      wrap.scale.setScalar(2.1);
+      wrap.position.set(SHRINE.x, PLATEAU.top + 0.05, SHRINE.z - 0.2);
+      wrap.name = 'shrine:triposr';
+      glbShrine = wrap;
+      world.add(wrap);
+      resolve(wrap);
+    }, undefined, reject);
   });
 }
 
-function frameObject(object) {
-  const box = new THREE.Box3().setFromObject(object);
-  const center = box.getCenter(new THREE.Vector3());
-  object.position.sub(center);
-
-  const groundedBox = new THREE.Box3().setFromObject(object);
-  object.position.y -= groundedBox.min.y;
-}
-
-function resetCamera() {
-  controls.target.set(0, 0.72, 0);
-  camera.position.copy(defaultCamera);
-  controls.update();
-}
-
-function degreesToRadians(degrees) {
-  return THREE.MathUtils.degToRad(Number.isFinite(degrees) ? degrees : 0);
-}
-
-function readRotationDegrees() {
-  return {
-    x: Number.parseFloat(rotationInputs.x.value),
-    y: Number.parseFloat(rotationInputs.y.value),
-    z: Number.parseFloat(rotationInputs.z.value),
-  };
-}
-
-function applyRotationFromInputs() {
-  if (!shrineObject) return;
-
-  const rotation = readRotationDegrees();
-  shrineObject.rotation.set(
-    degreesToRadians(rotation.x),
-    degreesToRadians(rotation.y),
-    degreesToRadians(rotation.z)
-  );
-  frameObject(shrineObject);
-}
-
-Object.values(rotationInputs).forEach((input) => {
-  input.addEventListener('input', applyRotationFromInputs);
-  input.addEventListener('change', applyRotationFromInputs);
-});
-
-const loader = new GLTFLoader();
-loader.load(
-  './assets/generated/shrine_01_simple_clean.glb',
-  (gltf) => {
-    const shrine = gltf.scene;
-    shrineObject = shrine;
-    applyBrowserMaterial(shrine);
-    applyRotationFromInputs();
-    scene.add(shrine);
-    statusEl.textContent = 'Loaded shrine plus procedural roads/trees';
-  },
-  undefined,
-  (error) => {
-    console.error(error);
-    statusEl.textContent = 'Could not load the shrine GLB. Serve this folder over HTTP.';
+async function setShrineMode(mode) {
+  shrineMode = mode;
+  $('#shrine-mode').textContent = mode === 'procedural' ? 'Shrine: built' : 'Shrine: TripoSR';
+  if (mode === 'triposr') {
+    try {
+      await loadGlbShrine();
+    } catch (error) {
+      console.error(error);
+      toast('Could not load the TripoSR shrine GLB');
+      shrineMode = 'procedural';
+    }
   }
-);
+  hall.visible = shrineMode === 'procedural';
+  if (glbShrine) glbShrine.visible = shrineMode === 'triposr';
+}
 
-resetCamera();
+// ------------------------------------------------------------------ cameras
 
-window.addEventListener('keydown', (event) => {
-  if (event.key.toLowerCase() !== 'r') return;
-  resetCamera();
-});
+const PRESETS = {
+  street: { pos: [3.2, 8.4, 25], target: [0.4, 0.8, -7.5], label: 'Street' },
+  shrine: { pos: [-3.2, 7.2, 13.5], target: [-11.6, 2.4, -1.2], label: 'Shrine' },
+  station: { pos: [23, 6.6, 7.5], target: [10.5, 0.8, -6.2], label: 'Station' },
+  harbour: { pos: [17, 11, -11], target: [0, -2.6, -34], label: 'Harbour' },
+  diorama: { pos: [46, 42, 38], target: [0, -1, -8], label: 'Diorama' },
+};
+let tween = null;
+function goTo(name, instant = false) {
+  const p = PRESETS[name];
+  if (!p) return;
+  document.querySelectorAll('[data-cam]').forEach((b) => b.classList.toggle('on', b.dataset.cam === name));
+  const to = { pos: new THREE.Vector3(...p.pos), target: new THREE.Vector3(...p.target) };
+  if (instant) {
+    camera.position.copy(to.pos);
+    controls.target.copy(to.target);
+    controls.update();
+    return;
+  }
+  tween = { from: { pos: camera.position.clone(), target: controls.target.clone() }, to, t: 0 };
+}
 
-window.addEventListener('resize', () => {
+// ------------------------------------------------------------------ time of day
+
+const state = {
+  hour: 15.5,
+  playing: true,
+  speed: 1 / 14, // game hours per real second
+  night: 0,
+};
+const tmpDir = new THREE.Vector3();
+function applyTimeOfDay() {
+  const s = sampleSky(state.hour);
+  state.night = s.night;
+  shared.uNight.value = s.night;
+  sky.material.uniforms.uTop.value.copy(s.top);
+  sky.material.uniforms.uHorizon.value.copy(s.horizon);
+  sky.material.uniforms.uSunColor.value.copy(s.sun);
+  sunDirection(state.hour, tmpDir);
+  sky.material.uniforms.uSunDir.value.copy(tmpDir);
+
+  const up = tmpDir.y > -0.05;
+  const lightDir = up ? tmpDir.clone() : tmpDir.clone().negate();
+  lightDir.y = Math.max(lightDir.y, 0.18);
+  lightDir.normalize();
+  sun.position.copy(sun.target.position).addScaledVector(lightDir, 70);
+  sun.color.copy(up ? s.sun : new THREE.Color(0x8fa8ff));
+  sun.intensity = up ? s.sunIntensity * THREE.MathUtils.smoothstep(tmpDir.y, -0.05, 0.12) + (1 - THREE.MathUtils.smoothstep(tmpDir.y, -0.05, 0.12)) * 0.35 : 0.35;
+  hemi.color.copy(s.hemiSky);
+  hemi.groundColor.copy(s.hemiGround);
+  hemi.intensity = THREE.MathUtils.lerp(1.5, 0.9, s.night);
+  scene.fog.color.copy(s.horizon);
+
+  const seaU = sea.material.uniforms;
+  seaU.uSky.value.copy(s.horizon);
+  seaU.uSunDir.value.copy(up ? tmpDir : tmpDir.clone().negate());
+  seaU.uSunColor.value.copy(up ? s.sun : new THREE.Color(0x9ab0ff));
+  seaU.uDeep.value.set(0x1f63b8).lerp(new THREE.Color(0x0c1a3a), s.night);
+  seaU.uShallow.value.set(0x3fb8d8).lerp(new THREE.Color(0x1a3a5a), s.night);
+
+  const cloudTint = new THREE.Color(0xffffff).lerp(s.sun, 0.35).lerp(new THREE.Color(0x6a78a8), s.night * 0.8);
+  clouds.userData.material.color.copy(cloudTint);
+
+  for (const l of nightLights) l.intensity = l.userData.strength * THREE.MathUtils.smoothstep(s.night, 0.25, 0.8);
+  updateSigns(s.night);
+
+  const h = Math.floor(state.hour);
+  const m = Math.floor((state.hour - h) * 60);
+  $('#clock').textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  $('#time').value = state.hour;
+  $('#period').textContent = periodName(state.hour);
+}
+
+function periodName(h) {
+  if (h < 4.5) return '夜 · night';
+  if (h < 6.8) return '夜明け · dawn';
+  if (h < 11) return '朝 · morning';
+  if (h < 16.5) return '昼 · afternoon';
+  if (h < 19.2) return '夕方 · dusk';
+  return '夜 · night';
+}
+
+// ------------------------------------------------------------------ UI
+
+const sound = new Soundscape();
+let toastTimer = 0;
+function toast(text) {
+  const el = $('#toast');
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+function resize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+  pixel.setSize(window.innerWidth, window.innerHeight);
+  $('#px').textContent = pixel.enabled ? `${pixel.pixelSize}×` : 'off';
+}
+window.addEventListener('resize', resize);
 
-function animate() {
-  controls.update();
-  renderer.render(scene, camera);
-  requestAnimationFrame(animate);
+function setPixel(size) {
+  if (size < 1) {
+    pixel.enabled = false;
+  } else {
+    pixel.enabled = true;
+    pixel.pixelSize = Math.min(8, size);
+  }
+  resize();
 }
 
-animate();
+$('#time').addEventListener('input', (e) => {
+  state.hour = Number(e.target.value);
+  applyTimeOfDay();
+});
+$('#play').addEventListener('click', togglePlay);
+function togglePlay() {
+  state.playing = !state.playing;
+  $('#play').textContent = state.playing ? '❚❚' : '▶';
+}
+document.querySelectorAll('[data-cam]').forEach((b) => b.addEventListener('click', () => goTo(b.dataset.cam)));
+$('#orbit').addEventListener('click', () => {
+  controls.autoRotate = !controls.autoRotate;
+  $('#orbit').classList.toggle('on', controls.autoRotate);
+});
+$('#px-down').addEventListener('click', () => setPixel(pixel.enabled ? pixel.pixelSize - 1 : 0));
+$('#px-up').addEventListener('click', () => setPixel(pixel.enabled ? pixel.pixelSize + 1 : 1));
+$('#outlines').addEventListener('click', () => {
+  pixel.outlines = !pixel.outlines;
+  $('#outlines').classList.toggle('on', pixel.outlines);
+});
+$('#dither').addEventListener('click', () => {
+  pixel.dither = !pixel.dither;
+  $('#dither').classList.toggle('on', pixel.dither);
+});
+$('#sound').addEventListener('click', () => {
+  if (sound.on) sound.stop();
+  else sound.start();
+  $('#sound').classList.toggle('on', sound.on);
+  $('#sound').textContent = sound.on ? '♪ Sound on' : '♪ Sound';
+});
+$('#shrine-mode').addEventListener('click', () => setShrineMode(shrineMode === 'procedural' ? 'triposr' : 'procedural'));
+$('#source').addEventListener('click', () => $('#source-full').classList.add('show'));
+$('#source-full').addEventListener('click', () => $('#source-full').classList.remove('show'));
+$('#postcard').addEventListener('click', () => {
+  wantPostcard = true;
+});
+$('#hide').addEventListener('click', () => document.body.classList.toggle('bare'));
+
+window.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') {
+    togglePlay();
+    e.preventDefault();
+  } else if (k === 'h') document.body.classList.toggle('bare');
+  else if (k === 'r') goTo('street');
+  else if (k === '[') setPixel(pixel.enabled ? pixel.pixelSize - 1 : 0);
+  else if (k === ']') setPixel(pixel.enabled ? pixel.pixelSize + 1 : 1);
+  else if (k === 'n') {
+    state.hour = state.night > 0.5 ? 13 : 21;
+    applyTimeOfDay();
+  } else if (k === 't') {
+    tram.skip(20);
+    toast('Tram schedule +20s');
+  } else if (k === 'p') wantPostcard = true;
+  else if (k >= '1' && k <= '5') goTo(Object.keys(PRESETS)[Number(k) - 1]);
+});
+
+let wantPostcard = false;
+function savePostcard() {
+  const src = renderer.domElement;
+  const scale = pixel.enabled ? pixel.pixelSize : 1;
+  const out = document.createElement('canvas');
+  out.width = src.width * scale;
+  out.height = src.height * scale;
+  const ctx = out.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, 0, 0, out.width, out.height);
+  const a = document.createElement('a');
+  a.download = `umimi-cho-${$('#clock').textContent.replace(':', '')}.png`;
+  a.href = out.toDataURL('image/png');
+  a.click();
+  toast('Postcard saved');
+}
+
+function tramStatus() {
+  const x = tram.x;
+  if (tram.atStation) return '🚃 停車中 · tram at Umimi-chō';
+  if (Math.abs(tram.v) < 0.05) return x < 0 ? '🚃 next tram from はまべ tunnel' : '🚃 next tram from やまて tunnel';
+  const toward = Math.sign(STATION_STOP_X - x) === Math.sign(tram.v);
+  return toward ? '🚃 tram arriving…' : '🚃 tram departing';
+}
+
+// ------------------------------------------------------------------ loop
+
+const clock = new THREE.Clock();
+let elapsed = 0;
+let statusTimer = 0;
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.1);
+  elapsed += dt;
+  shared.uTime.value = elapsed;
+
+  if (state.playing) {
+    state.hour = (state.hour + dt * state.speed) % 24;
+    applyTimeOfDay();
+  }
+
+  if (tween) {
+    tween.t = Math.min(1, tween.t + dt / 1.8);
+    const k = tween.t < 0.5 ? 4 * tween.t ** 3 : 1 - (-2 * tween.t + 2) ** 3 / 2;
+    camera.position.lerpVectors(tween.from.pos, tween.to.pos, k);
+    controls.target.lerpVectors(tween.from.target, tween.to.target, k);
+    if (tween.t >= 1) tween = null;
+  }
+  controls.update();
+
+  tram.update(elapsed, dt);
+  crossing.update(tram.crossing, elapsed, dt);
+  traffic.update(dt, crossing.closed || tram.crossing);
+  boats.update(elapsed);
+  gulls.update(elapsed);
+  fireflies.update(elapsed, state.night);
+  beam.update(elapsed, state.night);
+  cat.update(elapsed);
+  clouds.userData.update(dt);
+  sound.update(elapsed, state.night, tram.crossing, 1 - Math.min(1, camera.position.distanceTo(new THREE.Vector3(0, 0, TRACK_Z)) / 60));
+
+  statusTimer -= dt;
+  if (statusTimer <= 0) {
+    $('#tram').textContent = tramStatus();
+    statusTimer = 0.5;
+  }
+
+  renderer.shadowMap.needsUpdate = true;
+  pixel.render(state.night);
+  if (wantPostcard) {
+    wantPostcard = false;
+    savePostcard();
+  }
+  requestAnimationFrame(frame);
+}
+
+resize();
+goTo('street', true);
+applyTimeOfDay();
+$('#loading').classList.add('done');
+frame();
+
+// handy for poking around from the console
+window.town = { applyTimeOfDay, scene, camera, controls, state, tram, traffic, pixel, staticMeshes, goTo, setShrineMode, roadBHeight };

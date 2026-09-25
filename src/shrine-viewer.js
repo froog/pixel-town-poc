@@ -1,0 +1,272 @@
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const app = document.querySelector('#app');
+const statusEl = document.querySelector('#status');
+const rotationInputs = {
+  x: document.querySelector('#x-rotation'),
+  y: document.querySelector('#y-rotation'),
+  z: document.querySelector('#z-rotation'),
+};
+let shrineObject = null;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87d7f4);
+scene.fog = new THREE.Fog(0x87d7f4, 10, 24);
+
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.01, 100);
+const defaultCamera = new THREE.Vector3(3.65, 2.25, 6.4);
+camera.position.copy(defaultCamera);
+
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.NoToneMapping;
+app.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.target.set(0, 0.72, 0);
+controls.minDistance = 2.2;
+controls.maxDistance = 12;
+controls.maxPolarAngle = Math.PI * 0.48;
+
+const hemi = new THREE.HemisphereLight(0xbfeeff, 0x5c6e4f, 2.15);
+scene.add(hemi);
+
+const sun = new THREE.DirectionalLight(0xfff1c4, 2.2);
+sun.position.set(3.5, 5, 2.5);
+scene.add(sun);
+
+const fill = new THREE.DirectionalLight(0x8fd7ff, 0.8);
+fill.position.set(-4, 2.5, -3);
+scene.add(fill);
+
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(5.8, 64),
+  new THREE.MeshStandardMaterial({ color: 0xbcd7a0, roughness: 0.9, metalness: 0 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -0.015;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(10, 32, 0x7ba0a0, 0x9fc8b4);
+grid.position.y = 0.002;
+grid.material.opacity = 0.22;
+grid.material.transparent = true;
+scene.add(grid);
+
+const axisGroup = new THREE.Group();
+axisGroup.position.set(-1.55, 0.02, -1.45);
+scene.add(axisGroup);
+
+function createAxisLabel(text, color) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const context = canvas.getContext('2d');
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = 'rgba(255, 255, 255, 0.82)';
+  context.beginPath();
+  context.arc(64, 64, 46, 0, Math.PI * 2);
+  context.fill();
+  context.fillStyle = color;
+  context.font = '700 64px system-ui, sans-serif';
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText(text, 64, 66);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
+  label.scale.set(0.28, 0.28, 1);
+  return label;
+}
+
+function addAxis(name, color, direction) {
+  const length = 1.25;
+  const dir = direction.clone().normalize();
+  const origin = new THREE.Vector3(0, 0, 0);
+
+  axisGroup.add(new THREE.ArrowHelper(dir, origin, length, color, 0.2, 0.12));
+
+  const label = createAxisLabel(name, `#${color.toString(16).padStart(6, '0')}`);
+  label.position.copy(dir.multiplyScalar(length + 0.22));
+  axisGroup.add(label);
+}
+
+addAxis('X', 0xd94242, new THREE.Vector3(1, 0, 0));
+addAxis('Y', 0x2b9f54, new THREE.Vector3(0, 1, 0));
+addAxis('Z', 0x2f6fd6, new THREE.Vector3(0, 0, 1));
+
+const roadMaterial = new THREE.MeshBasicMaterial({ color: 0x6f7d83, toneMapped: false });
+const roadEdgeMaterial = new THREE.MeshBasicMaterial({ color: 0xe6f0ee, toneMapped: false });
+const trunkMaterial = new THREE.MeshBasicMaterial({ color: 0x76512e, toneMapped: false });
+const leafMaterials = [
+  new THREE.MeshBasicMaterial({ color: 0x2f7a3e, toneMapped: false }),
+  new THREE.MeshBasicMaterial({ color: 0x3e9650, toneMapped: false }),
+  new THREE.MeshBasicMaterial({ color: 0x256b37, toneMapped: false }),
+];
+
+function addRoadSegment({ x, z, width, length, rotation = 0 }) {
+  const road = new THREE.Mesh(new THREE.BoxGeometry(width, 0.028, length), roadMaterial);
+  road.position.set(x, 0.012, z);
+  road.rotation.y = rotation;
+  scene.add(road);
+
+  const stripeCount = Math.max(2, Math.floor(length / 0.55));
+  for (let i = 0; i < stripeCount; i += 1) {
+    const offset = -length / 2 + 0.35 + i * 0.62;
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(width * 0.08, 0.012, 0.28), roadEdgeMaterial);
+    stripe.position.set(0, 0.018, offset);
+    road.add(stripe);
+  }
+}
+
+function addTree({ x, z, scale = 1, leafIndex = 0 }) {
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.055 * scale, 0.075 * scale, 0.42 * scale, 6), trunkMaterial);
+  trunk.position.set(x, 0.21 * scale, z);
+  scene.add(trunk);
+
+  const leaves = new THREE.Mesh(
+    new THREE.DodecahedronGeometry(0.26 * scale, 0),
+    leafMaterials[leafIndex % leafMaterials.length]
+  );
+  leaves.position.set(x, 0.55 * scale, z);
+  leaves.scale.set(0.9, 1.1, 0.9);
+  scene.add(leaves);
+}
+
+function addProceduralSurroundings() {
+  addRoadSegment({ x: 0, z: 2.15, width: 1.0, length: 6.2, rotation: Math.PI / 2 });
+  addRoadSegment({ x: 2.15, z: 0.85, width: 0.75, length: 3.2, rotation: 0.42 });
+  addRoadSegment({ x: -1.65, z: 0.85, width: 0.62, length: 2.7, rotation: -0.55 });
+
+  [
+    { x: -1.65, z: -0.75, scale: 0.95 },
+    { x: -1.25, z: -1.35, scale: 0.78 },
+    { x: -0.72, z: -1.08, scale: 0.86 },
+    { x: 1.12, z: -1.18, scale: 0.82 },
+    { x: 1.62, z: -0.62, scale: 1.0 },
+    { x: 2.08, z: -1.32, scale: 0.76 },
+    { x: -2.25, z: 0.18, scale: 0.72 },
+  ].forEach((tree, index) => addTree({ ...tree, leafIndex: index }));
+}
+
+addProceduralSurroundings();
+
+const contactShadow = new THREE.Mesh(
+  new THREE.CircleGeometry(0.95, 32),
+  new THREE.MeshBasicMaterial({
+    color: 0x5d705c,
+    transparent: true,
+    opacity: 0.22,
+    depthWrite: false,
+  })
+);
+contactShadow.rotation.x = -Math.PI / 2;
+contactShadow.scale.set(1.25, 0.7, 1);
+contactShadow.position.y = 0.006;
+scene.add(contactShadow);
+
+function applyBrowserMaterial(root) {
+  root.traverse((child) => {
+    if (!child.isMesh) return;
+
+    child.castShadow = false;
+    child.receiveShadow = false;
+
+    const hasVertexColors = Boolean(child.geometry?.attributes?.color);
+    child.material = new THREE.MeshBasicMaterial({
+      vertexColors: hasVertexColors,
+      color: hasVertexColors ? 0xffffff : 0x9db3bf,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    });
+  });
+}
+
+function frameObject(object) {
+  const box = new THREE.Box3().setFromObject(object);
+  const center = box.getCenter(new THREE.Vector3());
+  object.position.sub(center);
+
+  const groundedBox = new THREE.Box3().setFromObject(object);
+  object.position.y -= groundedBox.min.y;
+}
+
+function resetCamera() {
+  controls.target.set(0, 0.72, 0);
+  camera.position.copy(defaultCamera);
+  controls.update();
+}
+
+function degreesToRadians(degrees) {
+  return THREE.MathUtils.degToRad(Number.isFinite(degrees) ? degrees : 0);
+}
+
+function readRotationDegrees() {
+  return {
+    x: Number.parseFloat(rotationInputs.x.value),
+    y: Number.parseFloat(rotationInputs.y.value),
+    z: Number.parseFloat(rotationInputs.z.value),
+  };
+}
+
+function applyRotationFromInputs() {
+  if (!shrineObject) return;
+
+  const rotation = readRotationDegrees();
+  shrineObject.rotation.set(
+    degreesToRadians(rotation.x),
+    degreesToRadians(rotation.y),
+    degreesToRadians(rotation.z)
+  );
+  frameObject(shrineObject);
+}
+
+Object.values(rotationInputs).forEach((input) => {
+  input.addEventListener('input', applyRotationFromInputs);
+  input.addEventListener('change', applyRotationFromInputs);
+});
+
+const loader = new GLTFLoader();
+loader.load(
+  './assets/generated/shrine_01_simple_clean.glb',
+  (gltf) => {
+    const shrine = gltf.scene;
+    shrineObject = shrine;
+    applyBrowserMaterial(shrine);
+    applyRotationFromInputs();
+    scene.add(shrine);
+    statusEl.textContent = 'Loaded shrine plus procedural roads/trees';
+  },
+  undefined,
+  (error) => {
+    console.error(error);
+    statusEl.textContent = 'Could not load the shrine GLB. Serve this folder over HTTP.';
+  }
+);
+
+resetCamera();
+
+window.addEventListener('keydown', (event) => {
+  if (event.key.toLowerCase() !== 'r') return;
+  resetCamera();
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+function animate() {
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+
+animate();

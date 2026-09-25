@@ -1,5 +1,43 @@
 # Pixel Town 3D Asset Pipeline POC
 
+![Umimi-chō street view](docs/screenshots/street-day.png)
+
+## Umimi-chō: the town diorama
+
+`index.html` is a full browser diorama of the source panorama
+(`assets/source/panorama.png`), rendered as 3D pixel art:
+
+- shrine terrace with torii, stone lanterns, komainu and hydrangeas
+- level crossing whose barriers drop for a two-car tram that runs between
+  two tunnels and stops at the station
+- traffic that waits at the crossing, harbour with jetty and breakwater,
+  sailboats, gulls, rice paddies, utility poles with sagging wires
+- a 24h day/night cycle: lit windows, lanterns, fireflies, a lighthouse
+  beam, stars
+- low-res render + depth/normal edge pass + ordered dither, upscaled with
+  nearest filtering
+- one button swaps the procedural shrine for the TripoSR pipeline asset
+  (`shrine_01_simple_clean.glb`), so generated assets can be judged in context
+- optional synthesised soundscape (surf, cicadas, crickets, crossing bell)
+
+Run: `python3 -m http.server 8010`, then open `http://localhost:8010`.
+Keys: `1-5` cameras, `N` day/night, `T` hurry the tram, `[ ]` pixel size,
+`H` hide UI, `P` save a postcard PNG, `space` pause time.
+
+The previous single-asset viewer (rotation controls) now lives at
+`shrine-viewer.html`.
+
+| Dusk | Night | TripoSR shrine in place |
+| --- | --- | --- |
+| ![](docs/screenshots/diorama-dusk.png) | ![](docs/screenshots/street-night.png) | ![](docs/screenshots/shrine-triposr.png) |
+
+Code: `src/main.js` composes the scene; `src/town/` holds the modules
+(terrain + sea shader, sky, buildings, props, life/traffic, pixel pass,
+audio). Static geometry is merged per material bucket by
+`src/town/batcher.js`, so the whole town is a handful of draw calls.
+
+---
+
 This project is a proof of concept for turning a generated pixel-art seaside
 town panorama into a stylised 3D world through a staged, testable asset
 pipeline.
