@@ -19,6 +19,14 @@ export const EXTENT = { x0: -70, x1: 204, z0: -48, z1: 60 };
 export const VALLEY = 3.2;
 export const ROAD_TUNNEL = { x0: 38, x1: 62 };
 export const RURAL_Y = VALLEY + 0.02;
+// The railway climbs through the east tunnel and runs on into Yamate,
+// ending just past Yamate station.
+export const RAIL_EXIT = 62;
+export const RAIL_END = 97;
+export const RAIL_V = VALLEY + 0.02;
+export function railY(x) {
+  return smoothstep(PORTAL_R + 1, RAIL_EXIT - 2, x) * RAIL_V;
+}
 export const RURAL_ROAD = [[62, -1.9], [96, -1.9], [112, 4], [122, 14], [128, 22], [140, 30], [178, 32]];
 
 export function riverZ(x) {
@@ -68,9 +76,8 @@ export const RAIL_COVER = 4.4;
 export const ROAD_COVER = RURAL_Y + 5.4;
 function tunnelCover(x, z, h) {
   const railBand = Math.abs(z - TRACK_Z) < 3.2;
-  if (railBand && ((x <= PORTAL_L - 1 && x > PORTAL_L - 17) || (x >= PORTAL_R + 1 && x < PORTAL_R + 17))) {
-    return Math.max(h, RAIL_COVER);
-  }
+  if (railBand && x <= PORTAL_L - 1 && x > PORTAL_L - 17) return Math.max(h, RAIL_COVER);
+  if (railBand && x >= PORTAL_R + 1 && x <= RAIL_EXIT - 1) return Math.max(h, railY(x) + RAIL_COVER);
   if (Math.abs(z - ROAD_B_Z) < 4.2 && x >= ROAD_TUNNEL.x0 + 1 && x <= ROAD_TUNNEL.x1 - 1) return Math.max(h, ROAD_COVER);
   return h;
 }
@@ -80,6 +87,7 @@ function tunnelCover(x, z, h) {
 export const TERRAIN_HOLES = [
   { x0: PORTAL_L - 1, x1: PORTAL_L, zc: TRACK_Z, hz: 2, top: RAIL_COVER },
   { x0: PORTAL_R, x1: PORTAL_R + 1, zc: TRACK_Z, hz: 2, top: RAIL_COVER },
+  { x0: RAIL_EXIT - 1, x1: RAIL_EXIT, zc: TRACK_Z, hz: 2, top: RAIL_COVER },
   { x0: ROAD_TUNNEL.x0, x1: ROAD_TUNNEL.x0 + 1, zc: -1.9, hz: 3, top: ROAD_COVER },
   { x0: ROAD_TUNNEL.x1 - 1, x1: ROAD_TUNNEL.x1, zc: -1.9, hz: 3, top: ROAD_COVER },
 ];
@@ -108,6 +116,11 @@ export function heightAt(x, z) {
       const carve = (1 - smoothstep(1.7, 3.4, Math.abs(z - riverZ(x)))) * smoothstep(66, 72, x) * (1 - smoothstep(184, 190, x));
       h = lerp(h, VALLEY - 1.15, carve);
     }
+  }
+  // railway cutting across the valley floor
+  if (x >= RAIL_EXIT && x <= RAIL_END + 4) {
+    const band = 1 - smoothstep(1.5, 3.2, Math.abs(z - TRACK_Z));
+    h = lerp(h, RAIL_V - 0.08, band);
   }
   // harbour quay
   if (z < -16) {
@@ -198,16 +211,16 @@ export function buildTerrain() {
 // shallows and shoreline are.
 function heightTexture() {
   const size = 256;
-  const data = new Float32Array(size * size);
+  const data = new Uint16Array(size * size);
   const { x0, x1, z0, z1 } = EXTENT;
   for (let j = 0; j < size; j += 1) {
     for (let i = 0; i < size; i += 1) {
       const x = x0 + ((i + 0.5) / size) * (x1 - x0);
       const z = z0 + ((j + 0.5) / size) * (z1 - z0);
-      data[j * size + i] = heightAt(x, z);
+      data[j * size + i] = THREE.DataUtils.toHalfFloat(heightAt(x, z));
     }
   }
-  const tex = new THREE.DataTexture(data, size, size, THREE.RedFormat, THREE.FloatType);
+  const tex = new THREE.DataTexture(data, size, size, THREE.RedFormat, THREE.HalfFloatType);
   tex.minFilter = THREE.LinearFilter;
   tex.magFilter = THREE.LinearFilter;
   tex.needsUpdate = true;

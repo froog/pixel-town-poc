@@ -15,7 +15,10 @@ export class PixelPass {
     this.dither = true;
     this.enabled = true;
 
-    const opts = { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, type: THREE.HalfFloatType };
+    // half-float colour buffers need an extension some mobile GPUs lack
+    const ext = renderer.extensions;
+    const halfOk = ext.has('EXT_color_buffer_float') || ext.has('EXT_color_buffer_half_float');
+    const opts = { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, type: halfOk ? THREE.HalfFloatType : THREE.UnsignedByteType };
     this.colorRT = new THREE.WebGLRenderTarget(1, 1, opts);
     this.colorRT.depthTexture = new THREE.DepthTexture(1, 1);
     this.normalRT = new THREE.WebGLRenderTarget(1, 1, { ...opts, type: THREE.UnsignedByteType });

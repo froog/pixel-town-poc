@@ -126,6 +126,8 @@ export class Batcher {
       parent.add(mesh);
       meshes.push(mesh);
     }
+    // drop the per-piece geometry so it can be garbage-collected
+    this.parts = { solid: [], foliage: [], glow: [] };
     return meshes;
   }
 }

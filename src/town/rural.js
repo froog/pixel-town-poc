@@ -5,6 +5,7 @@ import { groundRange, house, PALETTE, solids, stoneLantern, torii } from './buil
 import { bush, hydrangea, paddyCell, pineTree, roundTree, utilityPole, vendingMachine } from './props.js';
 import { makeSign } from './signs.js';
 import { shared } from './materials.js';
+import { DENSITY } from './quality.js';
 
 // Yamate (山手): the farming valley beyond the road tunnel. Thatched minka,
 // paddies, a river with a water wheel, a torii path, a pagoda and cedar
@@ -469,6 +470,8 @@ export function buildRural(B, decor, rng, parent) {
 
   // --- landmarks
   const features = [];
+  // keep the railway and Yamate station clear
+  for (let x = 60; x <= 100; x += 2) claim(x, -7, 3.2);
   // farm by the tunnel exit with a water wheel on the river
   minka(B, rng, 84, 7.5, Math.PI + 0.1);
   kura(B, 79.5, 9.5, Math.PI + 0.1);
@@ -482,11 +485,11 @@ export function buildRural(B, decor, rng, parent) {
   persimmon(B, rng, 79, 5);
 
   // farm south of the road
-  minka(B, rng, 80, -9.5, -0.05);
-  claim(80, -9.5, 4.5);
-  persimmon(B, rng, 84.5, -7);
-  hydrangea(B, rng, 77.4, -6.8, 1.1);
-  hydrangea(B, rng, 78.4, -6.7, 1.0);
+  minka(B, rng, 78, -13.5, -0.05);
+  claim(78, -13.5, 4.5);
+  persimmon(B, rng, 83.5, -12);
+  hydrangea(B, rng, 75.4, -10.8, 1.1);
+  hydrangea(B, rng, 76.4, -10.7, 1.0);
 
   // farm with greenhouses
   minka(B, rng, 112, -9, 0.05);
@@ -546,7 +549,7 @@ export function buildRural(B, decor, rng, parent) {
   persimmon(B, rng, 162, 27);
 
   // bamboo grove on the north bank
-  for (let i = 0; i < 160; i += 1) {
+  for (let i = 0; i < 160 * DENSITY; i += 1) {
     const x = rng.range(68, 84);
     const z = rng.range(riverZ(76) + 3.6, 34);
     if (!free(x, z, 0.1)) continue;
@@ -609,7 +612,7 @@ export function buildRural(B, decor, rng, parent) {
   }
 
   // --- cedar forest on the valley walls, broadleaf trees on the floor edges
-  for (let i = 0; i < 2600; i += 1) {
+  for (let i = 0; i < 2600 * DENSITY; i += 1) {
     const x = rng.range(58, EXTENT.x1 - 2);
     const z = rng.range(EXTENT.z0 + 2, EXTENT.z1 - 2);
     const h = heightAt(x, z);

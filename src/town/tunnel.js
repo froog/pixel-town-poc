@@ -37,6 +37,7 @@ function pushQuad(verts, cols, a, b, c, d, col) {
 export function tunnel(B, decor, opts) {
   const { xa, xb, zc, floorY, W, wallH, openA = true, openB = true, cover, name = null, lampStep = 3 } = opts;
   const R = W / 2;
+  const coverAt = typeof cover === 'function' ? cover : () => cover;
   const prof = profile(W, wallH);
   const verts = [];
   const cols = [];
@@ -80,12 +81,12 @@ export function tunnel(B, decor, opts) {
   }
 
   for (const [x, open, s] of [[xa, openA, -1], [xb, openB, 1]]) {
-    if (open) portal(B, x, zc, floorY(x), W, wallH, s, cover);
+    if (open) portal(B, x, zc, floorY(x), W, wallH, s, coverAt(x));
   }
   // lids over the terrain holes behind the portals
   for (const [x, open, s] of [[xa, openA, 1], [xb, openB, -1]]) {
     if (!open) continue;
-    const top = cover;
+    const top = coverAt(x);
     B.block('solid', 1.05, 0.5, (R + 1.6) * 2, x + s * 0.5, top - 0.45, zc, 0x3f7d3a);
   }
 

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Batcher, gableGeometry } from './batcher.js';
-import { ROAD_TUNNEL, roadBHeight, roadHeight, RURAL_ROAD, RURAL_Y, SEA, TRACK_Z } from './terrain.js';
+import { railY, ROAD_TUNNEL, roadBHeight, roadHeight, RURAL_ROAD, RURAL_Y, SEA, TRACK_Z } from './terrain.js';
+import { YAMATE_STOP_X } from './props.js';
 import { STATION_STOP_X, PLATEAU, STAIRS } from './layout.js';
 import { makeRng } from './rng.js';
 import { shared, toonRamp } from './materials.js';
@@ -47,37 +48,48 @@ function buildTramCar(B, lead) {
   }
 }
 
-// Returns { x, speed } for the tram at time t (seconds). It arrives from
-// one tunnel, dwells at the station, leaves through the other, then comes
-// back the other way.
-const TRAM_PERIOD = 76;
+// The tram shuttles: out of the west tunnel, stop at Umimi-chō, climb
+// through the east tunnel to Yamate, stop, and come all the way back.
+// Each leg: [from, to, seconds, ease, stop] where `stop` marks a dwell.
 const FAR_L = -46;
-const FAR_R = 50;
+const S1 = STATION_STOP_X;
+const S2 = YAMATE_STOP_X;
+const out = (k) => 1 - (1 - k) * (1 - k);
+const inn = (k) => k * k;
+const both = (k) => (k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2);
+const LEGS = [
+  [FAR_L, S1, 13, out],
+  [S1, S1, 8, null, 'umimi'],
+  [S1, S2, 26, both],
+  [S2, S2, 10, null, 'yamate'],
+  [S2, S1, 26, both],
+  [S1, S1, 8, null, 'umimi'],
+  [S1, FAR_L, 11, inn],
+  [FAR_L, FAR_L, 6, null],
+];
+const TRAM_PERIOD = LEGS.reduce((sum, l) => sum + l[2], 0);
+
+function tramLeg(t) {
+  let u = ((t % TRAM_PERIOD) + TRAM_PERIOD) % TRAM_PERIOD;
+  for (const leg of LEGS) {
+    if (u < leg[2]) return { leg, k: u / leg[2], u };
+    u -= leg[2];
+  }
+  return { leg: LEGS[0], k: 0, u: 0 };
+}
+
 function tramX(t) {
-  const u = ((t % TRAM_PERIOD) + TRAM_PERIOD) % TRAM_PERIOD;
-  const S = STATION_STOP_X;
-  const seg = (a, b, k, ease) => a + (b - a) * ease(Math.min(1, Math.max(0, k)));
-  const out = (k) => 1 - (1 - k) * (1 - k);
-  const inn = (k) => k * k;
-  if (u < 13) return seg(FAR_L, S, u / 13, out);
-  if (u < 21) return S;
-  if (u < 32) return seg(S, FAR_R, (u - 21) / 11, inn);
-  if (u < 38) return FAR_R;
-  if (u < 51) return seg(FAR_R, S, (u - 38) / 13, out);
-  if (u < 59) return S;
-  if (u < 70) return seg(S, FAR_L, (u - 59) / 11, inn);
-  return FAR_L;
+  const { leg, k } = tramLeg(t);
+  const [a, b, , ease] = leg;
+  return ease ? a + (b - a) * ease(k) : a;
 }
 
 // 0 = closed, 1 = open; doors open a moment after the tram stops.
 function tramDoors(t) {
-  const u = ((t % TRAM_PERIOD) + TRAM_PERIOD) % TRAM_PERIOD;
-  for (const start of [13, 51]) {
-    const k = u - start;
-    if (k < 0 || k > 8) continue;
-    return THREE.MathUtils.smoothstep(k, 0.9, 1.7) * (1 - THREE.MathUtils.smoothstep(k, 6.2, 7.0));
-  }
-  return 0;
+  const { leg, u } = tramLeg(t);
+  if (!leg[4]) return 0;
+  const d = leg[2];
+  return THREE.MathUtils.smoothstep(u, 0.9, 1.7) * (1 - THREE.MathUtils.smoothstep(u, d - 1.8, d - 1.0));
 }
 
 function doorLeaves(car) {
@@ -133,10 +145,19 @@ export function createTram(scene) {
     cars[1].position.x = x - state.dir * 2.25;
     cars[0].rotation.y = state.dir > 0 ? 0 : Math.PI;
     cars[1].rotation.y = state.dir > 0 ? Math.PI : 0;
+    // follow the grade through the east tunnel
+    for (const car of cars) {
+      const cx = car.position.x;
+      car.position.y = 0.2 + railY(cx);
+      const slope = (railY(cx + 1) - railY(cx - 1)) / 2;
+      car.rotation.z = Math.atan(Math.cos(car.rotation.y) > 0 ? slope : -slope);
+    }
     const d = Math.max(0, Math.abs(x) - 4.6);
     const approaching = Math.sign(-x) === state.dir && Math.abs(state.v) > 0.1;
     state.crossing = d < 0.4 || (approaching && d < 14);
-    state.atStation = Math.abs(x - STATION_STOP_X) < 0.01;
+    const { leg } = tramLeg(t + t0);
+    state.stop = leg[4] ?? null;
+    state.atStation = state.stop === 'umimi';
     // doors open on the platform side (+Z in world space)
     const open = tramDoors(t + t0);
     state.doorsOpen = open;

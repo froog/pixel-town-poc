@@ -21,9 +21,16 @@ import { tubeMaterial } from './town/tunnel.js';
 import { Soundscape } from './town/audio.js';
 import { buildRural } from './town/rural.js';
 import { createWalker } from './town/walk.js';
+import { DENSITY, LITE } from './town/quality.js';
 import { PLATEAU, PLATFORM, SHRINE, STAIRS, STATION_STOP_X } from './town/layout.js';
 
 const $ = (sel) => document.querySelector(sel);
+
+// Building runs in stages so the loading text updates between them.
+const tick = (label) => {
+  $('#loading').textContent = `海見町 · ${label}…`;
+  return new Promise((resolve) => setTimeout(resolve, 0));
+};
 
 // ------------------------------------------------------------------ renderer
 
@@ -54,7 +61,7 @@ const hemi = new THREE.HemisphereLight(0xbfeeff, 0x5c6e4f, 1.4);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff1c4, 2.4);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.setScalar(LITE ? 1024 : 2048);
 Object.assign(sun.shadow.camera, { left: -42, right: 42, top: 42, bottom: -42, near: 1, far: 160 });
 sun.shadow.bias = -0.0006;
 sun.shadow.normalBias = 0.03;
@@ -75,6 +82,7 @@ scene.add(sky);
 const clouds = buildClouds();
 scene.add(clouds);
 
+await tick('shaping the hills');
 const terrain = new THREE.Mesh(
   buildTerrain(),
   new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: toonRamp })
@@ -129,6 +137,7 @@ curveMirror(B, 2.5, -0.1, -0.7);
 const swings = playground(B, world, 7.2, 4.8);
 claim(7.2, 4.8, 3.6);
 
+await tick('building houses');
 // town houses on the slope down to the harbour
 for (let gz = -11; gz > -30; gz -= 3.9) {
   for (let gx = -40; gx < 44; gx += 4.3) {
@@ -204,7 +213,8 @@ roundTree(B, rng, 10.6, 3.2, 1.3, 0);
 bigTree(B, rng, 3.8, 2.4, 0.8, 0);
 
 // forests over the hills and between houses
-for (let i = 0; i < 1400; i += 1) {
+await tick('planting forests');
+for (let i = 0; i < 1400 * DENSITY; i += 1) {
   const x = rng.range(-68, 68);
   const z = rng.range(-46, 32);
   const h = heightAt(x, z);
@@ -223,6 +233,7 @@ for (let i = 0; i < 1400; i += 1) {
 }
 
 // Yamate valley beyond the road tunnel
+await tick('farming Yamate');
 const rural = buildRural(B, decor, rng, world);
 
 // utility poles + wires
@@ -237,10 +248,12 @@ const wireLines = wires(chains);
 wireLines.layers.set(1);
 world.add(wireLines);
 
+await tick('merging geometry');
 const staticMeshes = B.build(world);
 
 // ------------------------------------------------------------------ life
 
+await tick('waking the town');
 const tram = createTram(world);
 const crossing = createCrossing(world);
 const traffic = createTraffic(world);
@@ -564,10 +577,11 @@ function savePostcard() {
 
 function tramStatus() {
   const x = tram.x;
-  if (tram.atStation) return '🚃 停車中 · tram at Umimi-chō';
-  if (Math.abs(tram.v) < 0.05) return x < 0 ? '🚃 next tram from はまべ tunnel' : '🚃 next tram from やまて tunnel';
-  const toward = Math.sign(STATION_STOP_X - x) === Math.sign(tram.v);
-  return toward ? '🚃 tram arriving…' : '🚃 tram departing';
+  if (tram.stop === 'umimi') return '🚃 停車中 · tram at Umimi-chō';
+  if (tram.stop === 'yamate') return '🚃 停車中 · tram at Yamate';
+  if (Math.abs(tram.v) < 0.05) return '🚃 next tram from はまべ tunnel';
+  if (tram.v > 0) return x < STATION_STOP_X ? '🚃 arriving at Umimi-chō…' : '🚃 bound for Yamate →';
+  return x > STATION_STOP_X ? '🚃 ← bound for Umimi-chō' : '🚃 ← leaving for はまべ';
 }
 
 // ------------------------------------------------------------------ loop

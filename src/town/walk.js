@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import {
-  distToPolyline, EXTENT, heightAt, riverZ, ROAD_B_Z, ROAD_TUNNEL, roadBHeight, RURAL_ROAD, RURAL_Y, SEA, TRACK_Z, VALLEY,
+  distToPolyline, EXTENT, heightAt, PORTAL_R, RAIL_EXIT, RAIL_V, railY, riverZ, ROAD_B_Z, ROAD_TUNNEL, roadBHeight, RURAL_ROAD, RURAL_Y, SEA, TRACK_Z, VALLEY,
 } from './terrain.js';
 import { PLATEAU, PLATFORM, STAIRS } from './layout.js';
 import { solids } from './buildings.js';
@@ -19,6 +19,10 @@ const MAX_STEP = 0.32;
 export function walkableY(x, z) {
   // road tunnel floor
   if (x > ROAD_TUNNEL.x0 - 0.5 && x < ROAD_TUNNEL.x1 + 0.5 && Math.abs(z - ROAD_B_Z) < 2.1) return roadBHeight(x) + 0.02;
+  // east rail tunnel climbs to Yamate; Yamate station platform + steps
+  if (x > PORTAL_R - 0.5 && x < RAIL_EXIT + 0.5 && Math.abs(z - TRACK_Z) < 1.3) return railY(x) + 0.12;
+  if (x > 84.2 && x < 96.4 && z > TRACK_Z + 0.8 && z < TRACK_Z + 2.6) return RAIL_V + 0.55;
+  if (x > 83.2 && x <= 84.2 && z > TRACK_Z + 1.2 && z < TRACK_Z + 2.2) return RAIL_V + (0.55 * (x - 83.2)) / 1.0;
   // shrine terrace + stairs
   if (x > PLATEAU.x0 && x < PLATEAU.x1 && z > PLATEAU.z0 && z < PLATEAU.z1) return PLATEAU.top + 0.06;
   const stairsEnd = PLATEAU.z1 + (STAIRS.steps - 1) * STAIRS.run;
@@ -204,7 +208,8 @@ export function zoneAt(x, z, y) {
   if (x > PLATEAU.x0 && x < PLATEAU.x1 && z > PLATEAU.z0 && z < PLATEAU.z1 + 3.5) return '夏山神社 · Natsuyama Shrine';
   if (x > PLATFORM.x0 - 3 && x < PLATFORM.x1 && z > PLATFORM.z0 - 1 && z < -3.3) return '海見町駅 · Umimi-chō Station';
   if (z < -25 && Math.abs(x) < 12) return '海見港 · Umimi Harbour';
-  if (x > ROAD_TUNNEL.x0 && x < ROAD_TUNNEL.x1) return '山手トンネル · Yamate Tunnel';
+  if (x > ROAD_TUNNEL.x0 && x < ROAD_TUNNEL.x1) return Math.abs(z - TRACK_Z) < 2 ? '鉄道トンネル · Railway Tunnel' : '山手トンネル · Yamate Tunnel';
+  if (x > 83 && x < 97 && Math.abs(z - TRACK_Z - 1.7) < 1.5) return '山手駅 · Yamate Station';
   if (x > 95 && x < 105 && z < -7) return '千本鳥居 · Path of a Thousand Torii';
   if (x > 145 && z > 33) return '山手寺 · Yamate Temple';
   if (x >= ROAD_TUNNEL.x1) return '山手の里 · Yamate Village';

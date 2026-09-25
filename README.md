@@ -27,11 +27,16 @@
 - **first-person walking** (`F` or the Walk button): WASD + mouse look,
   Shift to run; on phones, left thumb walks and right thumb looks. You follow
   stairs, the platform, the tunnels and the bridge; buildings and water block you
-- the tram's doors slide open at the platform; railway and road tunnels are
+- the tram shuttles between Umimi-chō and a little country halt, 山手駅
+  (Yamate station): it climbs through the east railway tunnel (which you can
+  walk through too) and comes out beside the road tunnel in the valley
+- the tram's doors slide open at both platforms; railway and road tunnels are
   arched tubes with stone portals and sodium lamps; swings and power lines
   sway in the breeze
 
-Run: `python3 -m http.server 8010`, then open `http://localhost:8010`.
+Run: `python3 scripts/serve.py 8010`, then open `http://localhost:8010`
+(it disables caching so phones never mix stale modules). Add `?lite` for a
+lighter build; touch devices get it automatically.
 Keys: `1-6` cameras, `F` walk, `N` day/night, `T` hurry the tram, `[ ]` pixel size,
 `H` hide UI, `P` save a postcard PNG, `space` pause time.
 
@@ -44,7 +49,7 @@ The previous single-asset viewer (rotation controls) now lives at
 
 | Yamate valley | Walking the torii path | Tram doors open |
 | --- | --- | --- |
-| ![](docs/screenshots/yamate-valley.png) | ![](docs/screenshots/walk-torii.png) | ![](docs/screenshots/tram-doors.png) |
+| ![](docs/screenshots/yamate-valley.png) | ![](docs/screenshots/walk-torii.png) | ![](docs/screenshots/yamate-station.png) |
 
 Code: `src/main.js` composes the scene; `src/town/` holds the modules
 (terrain + sea shader, sky, buildings, props, tunnels, the Yamate valley in

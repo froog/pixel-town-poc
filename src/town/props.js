@@ -1,12 +1,13 @@
 import * as THREE from 'three';
-import { hipGeometry, mat4 } from './batcher.js';
+import { gableGeometry, hipGeometry, mat4 } from './batcher.js';
 import {
-  heightAt, PORTAL_L, PORTAL_R, QUAY, RAIL_COVER, ROAD_COVER, ROAD_TUNNEL, roadBHeight, roadHeight, ROAD_B_Z, SEA, TRACK_Z,
+  heightAt, PORTAL_L, PORTAL_R, QUAY, RAIL_COVER, RAIL_END, RAIL_EXIT, RAIL_V, railY, ROAD_COVER, ROAD_TUNNEL, roadBHeight, roadHeight, ROAD_B_Z, SEA, TRACK_Z,
 } from './terrain.js';
 import { tunnel } from './tunnel.js';
 import { makeSign } from './signs.js';
 import { shared, toonRamp } from './materials.js';
-import { PALETTE } from './buildings.js';
+import { LITE } from './quality.js';
+import { PALETTE, solids } from './buildings.js';
 import { ROAD_A, ROAD_B } from './layout.js';
 
 const cyl6 = new THREE.CylinderGeometry(1, 1, 1, 6);
@@ -213,23 +214,71 @@ export function roads(B, rng, decor) {
 
 export function railway(B, decor) {
   const x0 = PORTAL_L - 14;
-  const x1 = PORTAL_R + 14;
-  B.block('solid', x1 - x0, 0.14, 2.6, (x0 + x1) / 2, -0.06, TRACK_Z, 0x8e8a80, { jitter: 0.04 });
+  const x1 = RAIL_END;
+  // ballast, ties and rails follow the climb through the east tunnel
+  for (let x = x0; x < x1; x += 1) {
+    const ya = railY(x);
+    const yb = railY(x + 1);
+    const pitch = Math.atan2(yb - ya, 1);
+    const ym = (ya + yb) / 2;
+    B.box('solid', 1.02, 0.14, 2.6, x + 0.5, ym + 0.01, TRACK_Z, 0x8e8a80, { rz: pitch, jitter: 0.04 });
+    for (const dz of [-0.55, 0.55]) B.box('solid', 1.01, 0.1, 0.07, x + 0.5, ym + 0.19, TRACK_Z + dz, 0xa2a8ae, { rz: pitch });
+  }
   for (let x = x0; x < x1; x += 0.55) {
     if (x > -1.8 && x < 1.8) continue;
-    B.box('solid', 0.22, 0.07, 2.0, x, 0.11, TRACK_Z, 0x5a4636);
+    B.box('solid', 0.22, 0.07, 2.0, x, railY(x) + 0.11, TRACK_Z, 0x5a4636);
   }
-  for (const dz of [-0.55, 0.55]) {
-    B.box('solid', x1 - x0, 0.1, 0.07, (x0 + x1) / 2, 0.19, TRACK_Z + dz, 0xa2a8ae);
-  }
+  // buffer stop at the end of the line
+  B.at(x1 + 0.2, RAIL_V, TRACK_Z, 0, () => {
+    B.block('solid', 0.5, 0.7, 2.0, 0, 0, 0, 0x6a4a30);
+    B.block('solid', 0.3, 0.3, 1.6, -0.3, 0.45, 0, 0xd8322a);
+    B.box('glow', 0.06, 0.16, 0.16, -0.46, 0.6, 0, 0xd83a2a, { lit: 1, emit: 0xff3020 });
+  });
   // crossing deck
   B.block('solid', 3.2, 0.16, 2.6, 0, 0, TRACK_Z, 0x4e5256);
   for (const dx of [-1.62, 1.62]) {
     for (let i = 0; i < 5; i += 1) B.box('solid', 0.06, 0.02, 0.5, dx, 0.17, TRACK_Z - 1.1 + i * 0.55, i % 2 ? 0x222222 : 0xf2d020);
   }
-  // tunnels into the hills at both ends
+  // west tunnel is a dead end; the east one climbs through to Yamate
   tunnel(B, decor, { xa: PORTAL_L - 14, xb: PORTAL_L, zc: TRACK_Z, floorY: () => -0.08, W: 2.8, wallH: 1.55, openA: false, cover: RAIL_COVER });
-  tunnel(B, decor, { xa: PORTAL_R, xb: PORTAL_R + 14, zc: TRACK_Z, floorY: () => -0.08, W: 2.8, wallH: 1.55, openB: false, cover: RAIL_COVER });
+  tunnel(B, decor, {
+    xa: PORTAL_R, xb: RAIL_EXIT, zc: TRACK_Z, floorY: (x) => railY(x) - 0.08, W: 2.8, wallH: 1.55,
+    cover: (x) => railY(x) + RAIL_COVER, lampStep: 4,
+  });
+  yamateStation(B, decor);
+}
+
+export const YAMATE_STOP_X = 90.5;
+
+// Small rural halt: one platform, a timber shelter, a name board.
+function yamateStation(B, decor) {
+  const x0 = 84.2;
+  const x1 = 96.4;
+  const z0 = TRACK_Z + 0.8;
+  const z1 = TRACK_Z + 2.6;
+  const top = RAIL_V + 0.55;
+  B.block('solid', x1 - x0, 0.9, z1 - z0, (x0 + x1) / 2, top - 0.9, (z0 + z1) / 2, 0xb0ada2);
+  B.box('solid', x1 - x0 - 0.2, 0.02, 0.18, (x0 + x1) / 2, top + 0.012, z0 + 0.42, 0xf2c830);
+  B.box('solid', x1 - x0, 0.02, 0.12, (x0 + x1) / 2, top + 0.01, z0 + 0.08, 0xf2f2ea);
+  for (let i = 0; i < 3; i += 1) B.block('solid', 0.34, ((3 - i) * (top - RAIL_V)) / 3 + 0.05, 1.0, x0 - 0.17 - i * 0.34, RAIL_V - 0.05, (z0 + z1) / 2, 0xa8a598);
+  // timber shelter
+  B.at(90.5, top, z1 - 0.55, 0, () => {
+    B.block('solid', 3.4, 1.5, 0.08, 0, 0, 0.45, 0x8a6040);
+    for (const px of [-1.6, 1.6]) B.block('solid', 0.1, 1.9, 0.1, px, 0, -0.3, 0x6a4a30);
+    B.geo('solid', gableGeometry(4.0, 1.7, 0.45), 0, 1.9, 0.05, 0x8a3a2a);
+    B.block('solid', 2.8, 0.06, 0.36, 0, 0.42, 0.2, 0xa8733c);
+    B.box('glow', 0.5, 0.06, 0.14, 0, 1.82, 0, 0xe8ece8, { lit: 1, emit: 0xfff4d0 });
+  });
+  for (let fx = x0 + 0.3; fx < x1; fx += 0.9) B.block('solid', 0.05, 0.8, 0.05, fx, top, z1 - 0.05, 0x8a6a48);
+  B.box('solid', x1 - x0 - 0.3, 0.05, 0.05, (x0 + x1) / 2, top + 0.75, z1 - 0.05, 0x8a6a48);
+  const board = makeSign({
+    lines: [['やまて', 0.9], ['山手', 1.2], ['← うみみちょう', 0.5]],
+    width: 1.6, height: 0.72, bg: '#ffffff', fg: '#1a1a1a', border: '#2f7a4a', pxPerUnit: 96,
+  });
+  board.position.set(86.4, top + 1.15, z1 - 0.3);
+  decor.add(board);
+  for (const px of [85.75, 87.05]) B.block('solid', 0.06, 1.2, 0.06, px, top, z1 - 0.34, 0x4a4a4a);
+  solids.push({ x: 90.5, z: z1 - 0.1, w: 3.4, d: 0.3, ry: 0 });
 }
 
 // ---------------------------------------------------------------- poles
@@ -576,8 +625,9 @@ export function paddyCell(B, rng, x, z, cell = 3.6) {
   const young = rng.chance(0.7);
   B.block('solid', cell, 0.1, cell, x + cell / 2, y - 0.04, z + cell / 2, 0x8a7048);
   B.box('glow', cell - 0.3, 0.02, cell - 0.3, x + cell / 2, y + 0.07, z + cell / 2, young ? 0x7cb0a8 : 0x9cc860, { lit: 0 });
-  for (let r = 0; r < 7; r += 1) {
-    B.box('foliage', cell - 0.6, 0.12, 0.08, x + cell / 2, y + 0.12, z + 0.5 + r * ((cell - 1) / 6),
+  const rows = LITE ? 3 : 5;
+  for (let r = 0; r < rows; r += 1) {
+    B.box('foliage', cell - 0.6, 0.12, 0.1, x + cell / 2, y + 0.12, z + 0.5 + r * ((cell - 1) / (rows - 1)),
       young ? 0x6aa84a : 0x8cc050, { sway: 0.35 });
   }
 }
