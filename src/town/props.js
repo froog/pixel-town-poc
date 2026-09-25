@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { hipGeometry, mat4 } from './batcher.js';
-import { heightAt, PORTAL_L, PORTAL_R, QUAY, roadBHeight, roadHeight, ROAD_B_Z, SEA, TRACK_Z } from './terrain.js';
+import {
+  heightAt, PORTAL_L, PORTAL_R, QUAY, RAIL_COVER, ROAD_COVER, ROAD_TUNNEL, roadBHeight, roadHeight, ROAD_B_Z, SEA, TRACK_Z,
+} from './terrain.js';
+import { tunnel } from './tunnel.js';
 import { makeSign } from './signs.js';
 import { PALETTE } from './buildings.js';
 import { ROAD_A, ROAD_B } from './layout.js';
@@ -127,7 +130,7 @@ function stripeAlong(B, x, z, y, pitch, len, width, hex, ry = 0) {
   B.box('solid', width, 0.02, len, x, y + 0.012, z, hex, { ry, rx: pitch });
 }
 
-export function roads(B, rng) {
+export function roads(B, rng, decor) {
   // --- road A near section (flat)
   const flatFar = -8.4;
   B.block('solid', 3.2, 0.06, ROAD_A.zNear - flatFar, 0, -0.04, (ROAD_A.zNear + flatFar) / 2, ASPHALT);
@@ -181,16 +184,20 @@ export function roads(B, rng) {
 
   // --- road B (east, climbing gently)
   const bpts = [];
-  for (let x = 1.6; x <= ROAD_B.x1; x += 0.5) bpts.push([x, roadBHeight(x) + 0.0, ROAD_B_Z]);
+  for (let x = 1.6; x <= ROAD_TUNNEL.x1 + 0.01; x += 0.5) bpts.push([x, roadBHeight(x) + 0.0, ROAD_B_Z]);
   ribbon(B, bpts, 3.0, ASPHALT_DARK);
   const bside = [];
-  for (let x = 2.8; x <= ROAD_B.x1; x += 0.5) bside.push([x, roadBHeight(x) + 0.08, ROAD_B_Z + 2.05]);
+  for (let x = 2.8; x <= ROAD_TUNNEL.x0 + 0.01; x += 0.5) bside.push([x, roadBHeight(x) + 0.08, ROAD_B_Z + 2.05]);
   ribbon(B, bside, 1.1, PAVING);
-  for (let x = 5.2; x < ROAD_B.x1 - 1; x += 1.6) {
+  for (let x = 5.2; x < ROAD_TUNNEL.x1; x += 1.6) {
     const y = roadBHeight(x);
     const pitch = Math.atan2(roadBHeight(x + 0.4) - roadBHeight(x - 0.4), 0.8);
     B.box('solid', 0.8, 0.02, 0.1, x, y + 0.012, ROAD_B_Z, PAINT, { rz: pitch });
   }
+  tunnel(B, decor, {
+    xa: ROAD_TUNNEL.x0, xb: ROAD_TUNNEL.x1, zc: ROAD_B_Z, floorY: (x) => roadBHeight(x) - 0.04,
+    W: 4.6, wallH: 1.7, cover: ROAD_COVER, name: '山手トンネル  YAMATE TUNNEL', lampStep: 2.5,
+  });
   // zebra on road B
   for (let i = 0; i < 5; i += 1) B.box('solid', 2.0, 0.02, 0.3, 3.6, 0.036, -3.1 + i * 0.55, PAINT);
 
@@ -203,9 +210,9 @@ export function roads(B, rng) {
 
 // ---------------------------------------------------------------- railway
 
-export function railway(B) {
-  const x0 = PORTAL_L - 12;
-  const x1 = PORTAL_R + 12;
+export function railway(B, decor) {
+  const x0 = PORTAL_L - 14;
+  const x1 = PORTAL_R + 14;
   B.block('solid', x1 - x0, 0.14, 2.6, (x0 + x1) / 2, -0.06, TRACK_Z, 0x8e8a80, { jitter: 0.04 });
   for (let x = x0; x < x1; x += 0.55) {
     if (x > -1.8 && x < 1.8) continue;
@@ -219,18 +226,9 @@ export function railway(B) {
   for (const dx of [-1.62, 1.62]) {
     for (let i = 0; i < 5; i += 1) B.box('solid', 0.06, 0.02, 0.5, dx, 0.17, TRACK_Z - 1.1 + i * 0.55, i % 2 ? 0x222222 : 0xf2d020);
   }
-  // tunnel portals
-  for (const [px, dir] of [[PORTAL_L, 1], [PORTAL_R, -1]]) {
-    B.at(px, 0, TRACK_Z, dir > 0 ? 0 : Math.PI, () => {
-      B.block('solid', 0.8, 3.6, 1.4, 0, -0.3, -2.1, 0x8c8e86, { jitter: 0.06 });
-      B.block('solid', 0.8, 3.6, 1.4, 0, -0.3, 2.1, 0x8c8e86, { jitter: 0.06 });
-      B.block('solid', 0.8, 1.2, 5.6, 0, 2.3, 0, 0x8c8e86, { jitter: 0.06 });
-      B.block('solid', 0.9, 0.2, 5.8, 0.05, 3.5, 0, 0x7a7c74);
-      B.block('solid', 0.3, 2.4, 2.8, -0.45, 0, 0, 0x121418);
-      // hill face above the portal
-      B.block('solid', 0.4, 2.4, 8.5, -0.6, 2.8, 0, 0x3f7d3a);
-    });
-  }
+  // tunnels into the hills at both ends
+  tunnel(B, decor, { xa: PORTAL_L - 14, xb: PORTAL_L, zc: TRACK_Z, floorY: () => -0.08, W: 2.8, wallH: 1.55, openA: false, cover: RAIL_COVER });
+  tunnel(B, decor, { xa: PORTAL_R, xb: PORTAL_R + 14, zc: TRACK_Z, floorY: () => -0.08, W: 2.8, wallH: 1.55, openB: false, cover: RAIL_COVER });
 }
 
 // ---------------------------------------------------------------- poles

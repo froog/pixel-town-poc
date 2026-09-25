@@ -10,49 +10,111 @@ import { shared } from './materials.js';
 
 export const SEA = -3.2;
 export const TRACK_Z = -7;
-export const PORTAL_L = -22.5;
-export const PORTAL_R = 27.5;
-export const EXTENT = { x0: -70, x1: 70, z0: -48, z1: 34 };
+export const PORTAL_L = -23; // portals sit on terrain grid lines
+export const PORTAL_R = 28;
+export const EXTENT = { x0: -70, x1: 204, z0: -48, z1: 60 };
+
+// East of the town, road B runs through a tunnel in the ridge and comes out
+// in Yamate, a farming valley sitting VALLEY units above sea level.
+export const VALLEY = 3.2;
+export const ROAD_TUNNEL = { x0: 38, x1: 62 };
+export const RURAL_Y = VALLEY + 0.02;
+export const RURAL_ROAD = [[62, -1.9], [96, -1.9], [112, 4], [122, 14], [128, 22], [140, 30], [178, 32]];
+
+export function riverZ(x) {
+  return 14 + 7 * Math.sin((x - 64) / 16) + 2 * Math.sin(x / 7.3);
+}
+
+export function distToPolyline(x, z, pts) {
+  let best = Infinity;
+  for (let i = 0; i < pts.length - 1; i += 1) {
+    const [ax, az] = pts[i];
+    const [bx, bz] = pts[i + 1];
+    const dx = bx - ax;
+    const dz = bz - az;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)));
+    best = Math.min(best, Math.hypot(x - ax - dx * t, z - az - dz * t));
+  }
+  return best;
+}
 
 export function rawHeight(x, z) {
+  const town = 1 - smoothstep(44, 60, x);
+  const valley = smoothstep(52, 66, x);
   let h = 0;
-  const slope = smoothstep(-8.6, -31, z);
+  const slope = smoothstep(-8.6, -31, z) * town;
   h -= slope * 4.3;
   // gentle undulation on the slope and hills
   h += (fbm(x * 0.07 + 11, z * 0.07 - 3, 3) - 0.5) * 1.4 * slope;
   const left = smoothstep(-17, -34, x);
-  const right = smoothstep(20, 37, x);
+  const ridge = smoothstep(20, 37, x) * (1 - smoothstep(58, 72, x));
   const hillNoise = fbm(x * 0.05, z * 0.05 + 40, 4);
   h += left * (9 + hillNoise * 7) * smoothstep(-44, -24, z);
-  h += right * (8 + hillNoise * 7) * smoothstep(-44, -22, z);
+  h += ridge * (9 + hillNoise * 8) * smoothstep(-44, -22, z);
   // a knoll behind the shrine
   h += 3.6 * Math.exp(-(((x + 23) / 6) ** 2) - (((z + 1) / 7) ** 2));
   // seabed drops away
-  h -= smoothstep(-30, -44, z) * 5;
+  h -= smoothstep(-30, -44, z) * 5 * town;
+  // Yamate valley: a broad floor with wooded walls on three sides
+  h += valley * (VALLEY + (fbm(x * 0.035 + 5, z * 0.035, 3) - 0.5) * 0.9);
+  h += valley * smoothstep(-20, -40, z) * (10 + hillNoise * 9);
+  h += valley * smoothstep(38, 56, z) * (12 + hillNoise * 10);
+  h += smoothstep(182, 200, x) * (12 + hillNoise * 8);
   return h;
 }
+
+// Terrain must stay clear of tunnel tubes so their interiors read as holes.
+export const RAIL_COVER = 4.4;
+export const ROAD_COVER = RURAL_Y + 5.4;
+function tunnelCover(x, z, h) {
+  const railBand = Math.abs(z - TRACK_Z) < 3.2;
+  if (railBand && ((x <= PORTAL_L - 1 && x > PORTAL_L - 17) || (x >= PORTAL_R + 1 && x < PORTAL_R + 17))) {
+    return Math.max(h, RAIL_COVER);
+  }
+  if (Math.abs(z - ROAD_B_Z) < 4.2 && x >= ROAD_TUNNEL.x0 + 1 && x <= ROAD_TUNNEL.x1 - 1) return Math.max(h, ROAD_COVER);
+  return h;
+}
+
+// One-cell holes in the terrain right behind each portal (the terrain can't
+// be vertical there); a lid box covers them from above.
+export const TERRAIN_HOLES = [
+  { x0: PORTAL_L - 1, x1: PORTAL_L, zc: TRACK_Z, hz: 2, top: RAIL_COVER },
+  { x0: PORTAL_R, x1: PORTAL_R + 1, zc: TRACK_Z, hz: 2, top: RAIL_COVER },
+  { x0: ROAD_TUNNEL.x0, x1: ROAD_TUNNEL.x0 + 1, zc: -1.9, hz: 3, top: ROAD_COVER },
+  { x0: ROAD_TUNNEL.x1 - 1, x1: ROAD_TUNNEL.x1, zc: -1.9, hz: 3, top: ROAD_COVER },
+];
 
 export function heightAt(x, z) {
   let h = rawHeight(x, z);
   // railway cutting between the tunnel portals
-  if (x > PORTAL_L && x < PORTAL_R) {
+  if (x >= PORTAL_L && x <= PORTAL_R) {
     const band = 1 - smoothstep(1.5, 3.2, Math.abs(z - TRACK_Z));
     h = lerp(h, Math.min(h, 0), band);
   }
   // keep the road to the harbour on a clean line
   const road = 1 - smoothstep(2.2, 4.2, Math.abs(x));
   if (z < -7 && z > -31) h = lerp(h, roadHeight(z) - 0.14, road);
-  // road B climbs gently east ("yuunagi-zaka")
-  if (x > 2) {
+  // road B climbs gently east ("yuunagi-zaka") up to the road tunnel
+  if (x > 2 && x <= ROAD_TUNNEL.x0) {
     const band = 1 - smoothstep(1.9, 3.6, Math.abs(z - ROAD_B_Z));
     h = lerp(h, roadBHeight(x) - 0.14, band);
+  }
+  if (x >= ROAD_TUNNEL.x1) {
+    const d = distToPolyline(x, z, RURAL_ROAD);
+    const band = 1 - smoothstep(1.9, 3.6, d);
+    if (band > 0) h = lerp(h, RURAL_Y - 0.14, band);
+    // the river carves a shallow bed through the valley
+    if (x > 66 && x < 190) {
+      const carve = (1 - smoothstep(1.7, 3.4, Math.abs(z - riverZ(x)))) * smoothstep(66, 72, x) * (1 - smoothstep(184, 190, x));
+      h = lerp(h, VALLEY - 1.15, carve);
+    }
   }
   // harbour quay
   if (z < -16) {
     const q = (1 - smoothstep(8, 10.5, Math.abs(x))) * smoothstep(-31.4, -30.6, z);
     h = lerp(h, Math.max(h, QUAY), q);
   }
-  return h;
+  return tunnelCover(x, z, h);
 }
 
 export const QUAY = SEA + 0.6;
@@ -80,7 +142,9 @@ export function buildTerrain() {
   const positions = [];
   const colors = [];
   const c = new THREE.Color();
-  const H = (i, j) => heightAt(x0 + i * step, z0 + j * step);
+  const cache = new Float32Array((nx + 1) * (nz + 1));
+  for (let j = 0; j <= nz; j += 1) for (let i = 0; i <= nx; i += 1) cache[j * (nx + 1) + i] = heightAt(x0 + i * step, z0 + j * step);
+  const H = (i, j) => cache[j * (nx + 1) + i];
 
   const pushTri = (a, b, d) => {
     const cx = (a[0] + b[0] + d[0]) / 3;
@@ -90,9 +154,11 @@ export function buildTerrain() {
     const lo = Math.min(a[1], b[1], d[1]);
     const steep = (hi - lo) / step;
     const n = fbm(cx * 0.21, cz * 0.21, 2);
+    const rural = cx > ROAD_TUNNEL.x1;
     if (cy < SEA + 0.35) c.set(SAND);
     else if (steep > 1.45) c.set(ROCK);
-    else if (cy > 1.2 || Math.abs(cx) > 22) c.set(HILL[Math.floor(n * 3.99)]);
+    else if (rural && cy < VALLEY - 0.6) c.set(n > 0.5 ? 0xa8a290 : 0x948e7c);
+    else if (rural ? steep > 0.5 || cy > VALLEY + 2 : cy > 1.2 || Math.abs(cx) > 22) c.set(HILL[Math.floor(n * 3.99)]);
     else c.set(GRASS[Math.floor(n * 3.99)]);
     const shade = 0.94 + ((Math.sin(cx * 12.9898 + cz * 78.233) * 43758.5453) % 1) * 0.06;
     c.multiplyScalar(shade);
@@ -108,6 +174,9 @@ export function buildTerrain() {
       const p10 = [xa + step, H(i + 1, j), za];
       const p01 = [xa, H(i, j + 1), za + step];
       const p11 = [xa + step, H(i + 1, j + 1), za + step];
+      const cxm = xa + step / 2;
+      const czm = za + step / 2;
+      if (TERRAIN_HOLES.some((o) => cxm > o.x0 && cxm < o.x1 && Math.abs(czm - o.zc) < o.hz)) continue;
       if ((i + j) % 2 === 0) {
         pushTri(p00, p01, p11);
         pushTri(p00, p11, p10);

@@ -17,6 +17,7 @@ import {
 } from './town/life.js';
 import { PixelPass } from './town/pixelPass.js';
 import { updateSigns } from './town/signs.js';
+import { tubeMaterial } from './town/tunnel.js';
 import { Soundscape } from './town/audio.js';
 import { PLATEAU, PLATFORM, SHRINE, STAIRS, STATION_STOP_X } from './town/layout.js';
 
@@ -94,8 +95,8 @@ const free = (x, z, r) => occupied.every(([ox, oz, or]) => Math.hypot(x - ox, z 
 const claim = (x, z, r) => occupied.push([x, z, r]);
 
 // roads, railway, station, shrine
-decor.add(...roads(B, rng));
-railway(B);
+decor.add(...roads(B, rng, decor));
+railway(B, decor);
 station(B, decor);
 shrineComplex(B, rng, { procedural: false });
 claim((PLATEAU.x0 + PLATEAU.x1) / 2, (PLATEAU.z0 + PLATEAU.z1) / 2, 7);
@@ -378,6 +379,7 @@ function applyTimeOfDay() {
 
   for (const l of nightLights) l.intensity = l.userData.strength * THREE.MathUtils.smoothstep(s.night, 0.25, 0.8);
   updateSigns(s.night);
+  tubeMaterial.color.setScalar(THREE.MathUtils.lerp(1, 0.45, s.night));
 
   const h = Math.floor(state.hour);
   const m = Math.floor((state.hour - h) * 60);
