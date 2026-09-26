@@ -67,6 +67,8 @@ export function house(B, rng, opts) {
     B.box('solid', w + 0.22, base - lo + 0.4, d + 0.22, 0, (base + lo - 0.4) / 2, 0, PALETTE.stone, { jitter: 0.08 });
   });
 
+  let colsOut = 1;
+  let doorColOut = 0;
   B.at(x, base, z, ry, () => {
     const fh = 0.95;
     const H = floors * fh;
@@ -94,6 +96,8 @@ export function house(B, rng, opts) {
     // windows front and back
     const cols = Math.max(1, Math.floor(w / 0.85));
     const doorCol = rng.int(0, cols - 1);
+    colsOut = cols;
+    doorColOut = doorCol;
     for (const side of [1, -1]) {
       const fz = side * (d / 2 + 0.02);
       const fry = side === 1 ? 0 : Math.PI;
@@ -147,7 +151,12 @@ export function house(B, rng, opts) {
       B.geo('foliage', sphere, px, 0.3, d / 2 + 0.2, rng.pick([0x3e9650, 0x2f7a3e]), { sx: 0.18, sy: 0.2, sz: 0.18, sway: 0.4 });
     }
   });
-  return { base, top: base + floors * 0.95 };
+  // door position in world space (front face is local +Z), for footpaths
+  const doorLocal = { x: -w / 2 + (doorColOut + 0.5) * (w / colsOut), z: d / 2 + 0.5 };
+  const c = Math.cos(ry);
+  const sn = Math.sin(ry);
+  const door = [x + doorLocal.x * c + doorLocal.z * sn, z - doorLocal.x * sn + doorLocal.z * c];
+  return { base, top: base + floors * 0.95, door };
 }
 
 // The tall white corner house with the roller shutter garage.

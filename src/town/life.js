@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { Batcher, gableGeometry } from './batcher.js';
-import { railY, ROAD_TUNNEL, roadBHeight, roadHeight, RURAL_ROAD, RURAL_Y, SEA, TRACK_Z } from './terrain.js';
-import { YAMATE_STOP_X } from './props.js';
-import { STATION_STOP_X, PLATEAU, STAIRS } from './layout.js';
+import {
+  closestOnPolyline, MOUNTAIN_ROAD, mountainRoadY, ROAD_TUNNEL, roadBHeight, roadHeight, RURAL_ROAD, RURAL_Y, SEA, TRACK_Z,
+} from './terrain.js';
+import { PLATEAU, STAIRS } from './layout.js';
 import { makeRng } from './rng.js';
 import { shared, toonRamp } from './materials.js';
 
@@ -10,7 +11,7 @@ const toon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: toonRam
 
 // ---------------------------------------------------------------- tram
 
-function buildTramCar(B, lead) {
+export function buildTramCar(B, lead) {
   const L = 4.3;
   const W = 1.34;
   B.box('solid', L, 0.7, W, 0, 0.7, 0, 0x3f7d4a);
@@ -48,51 +49,7 @@ function buildTramCar(B, lead) {
   }
 }
 
-// The tram shuttles: out of the west tunnel, stop at Umimi-chō, climb
-// through the east tunnel to Yamate, stop, and come all the way back.
-// Each leg: [from, to, seconds, ease, stop] where `stop` marks a dwell.
-const FAR_L = -46;
-const S1 = STATION_STOP_X;
-const S2 = YAMATE_STOP_X;
-const out = (k) => 1 - (1 - k) * (1 - k);
-const inn = (k) => k * k;
-const both = (k) => (k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2);
-const LEGS = [
-  [FAR_L, S1, 13, out],
-  [S1, S1, 8, null, 'umimi'],
-  [S1, S2, 26, both],
-  [S2, S2, 10, null, 'yamate'],
-  [S2, S1, 26, both],
-  [S1, S1, 8, null, 'umimi'],
-  [S1, FAR_L, 11, inn],
-  [FAR_L, FAR_L, 6, null],
-];
-const TRAM_PERIOD = LEGS.reduce((sum, l) => sum + l[2], 0);
-
-function tramLeg(t) {
-  let u = ((t % TRAM_PERIOD) + TRAM_PERIOD) % TRAM_PERIOD;
-  for (const leg of LEGS) {
-    if (u < leg[2]) return { leg, k: u / leg[2], u };
-    u -= leg[2];
-  }
-  return { leg: LEGS[0], k: 0, u: 0 };
-}
-
-function tramX(t) {
-  const { leg, k } = tramLeg(t);
-  const [a, b, , ease] = leg;
-  return ease ? a + (b - a) * ease(k) : a;
-}
-
-// 0 = closed, 1 = open; doors open a moment after the tram stops.
-function tramDoors(t) {
-  const { leg, u } = tramLeg(t);
-  if (!leg[4]) return 0;
-  const d = leg[2];
-  return THREE.MathUtils.smoothstep(u, 0.9, 1.7) * (1 - THREE.MathUtils.smoothstep(u, d - 1.8, d - 1.0));
-}
-
-function doorLeaves(car) {
+export function doorLeaves(car) {
   const green = toon(0x2f6a3e);
   const glass = new THREE.MeshBasicMaterial({ color: 0x4a6a80 });
   const leaves = [];
@@ -113,69 +70,6 @@ function doorLeaves(car) {
     }
   }
   return { leaves, glass };
-}
-
-export function createTram(scene) {
-  const group = new THREE.Group();
-  group.name = 'tram';
-  const cars = [];
-  for (let i = 0; i < 2; i += 1) {
-    const car = new THREE.Group();
-    const B = new Batcher();
-    buildTramCar(B, i === 0);
-    B.build(car);
-    car.userData.doors = doorLeaves(car);
-    car.position.y = 0.2;
-    group.add(car);
-    cars.push(car);
-  }
-  group.position.z = TRACK_Z;
-  scene.add(group);
-
-  const state = { x: FAR_L, v: 0, dir: 1, crossing: false, atStation: false };
-  let prevX = tramX(0);
-  let t0 = 8;
-  state.update = (t, dt) => {
-    const x = tramX(t + t0);
-    state.v = dt > 0 ? (x - prevX) / dt : 0;
-    if (Math.abs(state.v) > 0.05) state.dir = Math.sign(state.v);
-    prevX = x;
-    state.x = x;
-    cars[0].position.x = x + state.dir * 2.25;
-    cars[1].position.x = x - state.dir * 2.25;
-    cars[0].rotation.y = state.dir > 0 ? 0 : Math.PI;
-    cars[1].rotation.y = state.dir > 0 ? Math.PI : 0;
-    // follow the grade through the east tunnel
-    for (const car of cars) {
-      const cx = car.position.x;
-      car.position.y = 0.2 + railY(cx);
-      const slope = (railY(cx + 1) - railY(cx - 1)) / 2;
-      car.rotation.z = Math.atan(Math.cos(car.rotation.y) > 0 ? slope : -slope);
-    }
-    const d = Math.max(0, Math.abs(x) - 4.6);
-    const approaching = Math.sign(-x) === state.dir && Math.abs(state.v) > 0.1;
-    state.crossing = d < 0.4 || (approaching && d < 14);
-    const { leg } = tramLeg(t + t0);
-    state.stop = leg[4] ?? null;
-    state.atStation = state.stop === 'umimi';
-    // doors open on the platform side (+Z in world space)
-    const open = tramDoors(t + t0);
-    state.doorsOpen = open;
-    for (const car of cars) {
-      const platformSide = Math.cos(car.rotation.y) > 0 ? 1 : -1;
-      for (const d of car.userData.doors.leaves) {
-        const k = d.sz === platformSide ? open : 0;
-        d.leaf.position.x = d.baseX + d.side * k * 0.23;
-      }
-      car.userData.doors.glass.color.setHex(0x4a6a80).lerp(new THREE.Color(0xfff2cc), THREE.MathUtils.smoothstep(shared.uNight.value, 0.25, 0.7));
-    }
-    // small sway while moving
-    group.rotation.x = Math.sin(t * 7) * 0.004 * Math.min(1, Math.abs(state.v) / 4);
-  };
-  state.skip = (seconds) => {
-    t0 += seconds;
-  };
-  return state;
 }
 
 // ---------------------------------------------------------------- crossing
@@ -401,19 +295,18 @@ function roadY(x, z) {
   if (Math.abs(x) <= 1.75) y = z > -8.4 ? 0.03 : roadHeight(z);
   else if (x <= ROAD_TUNNEL.x1) y = roadBHeight(x);
   else y = RURAL_Y;
+  if (z > 16 && x > 85 && x < 130) {
+    const q = closestOnPolyline(x, z, MOUNTAIN_ROAD);
+    if (q.d < 2.2) y = mountainRoadY(q.s);
+  }
   if (Math.abs(x) < 1.7 && Math.abs(z - TRACK_Z) < 1.3) y = 0.17;
+  if (Math.hypot(x - 138.6, z - 29) < 1.8) y = RURAL_Y + 0.26;
   return y;
 }
 
-export function createTraffic(scene) {
-  const A = new Path()
-    .line(-0.75, 40, -0.75, -28.5)
-    .arc(0, -28.5, 0.75, Math.PI, Math.PI * 2)
-    .line(0.75, -28.5, 0.75, 40)
-    .arc(0, 40, 0.75, 0, Math.PI)
-    .finish();
-  // road B -> Yamate tunnel -> rural road, driving on the left
-  const centre = [[1.65, -1.9], [ROAD_TUNNEL.x1, -1.9], ...RURAL_ROAD.slice(1)];
+// A loop: road A south end -> junction -> east along `centre` -> U-turn at
+// the far end -> back -> road A down to the harbour and back.
+function route(centre) {
   const eb = lane(centre, 0.75);
   const wb = lane([...centre].reverse(), 0.75);
   const end = centre[centre.length - 1];
@@ -421,18 +314,32 @@ export function createTraffic(scene) {
   const dl = Math.hypot(end[0] - prev[0], end[1] - prev[1]);
   const dir = [(end[0] - prev[0]) / dl, (end[1] - prev[1]) / dl];
   const left = [dir[1], -dir[0]];
-  const Bp = new Path()
+  return new Path()
     .points(wb)
     .arc(1.5, -0.4, 0.75, -Math.PI / 2, -Math.PI, 6)
-    .line(0.75, -0.4, 0.75, 40)
-    .arc(0, 40, 0.75, 0, Math.PI)
-    .line(-0.75, 40, -0.75, -28.5)
+    .line(0.75, -0.4, 0.75, ROAD_END)
+    .arc(0, ROAD_END, 0.75, 0, Math.PI)
+    .line(-0.75, ROAD_END, -0.75, -28.5)
     .arc(0, -28.5, 0.75, Math.PI, Math.PI * 2)
     .line(0.75, -28.5, 0.75, -3.55)
     .arc(1.65, -3.55, 0.9, Math.PI, Math.PI / 2, 6)
     .points(eb)
     .uturn(end, dir, left, 0.75)
     .finish();
+}
+const ROAD_END = 80;
+
+export function createTraffic(scene) {
+  const A = new Path()
+    .line(-0.75, ROAD_END, -0.75, -28.5)
+    .arc(0, -28.5, 0.75, Math.PI, Math.PI * 2)
+    .line(0.75, -28.5, 0.75, ROAD_END)
+    .arc(0, ROAD_END, 0.75, 0, Math.PI)
+    .finish();
+  // road B -> Yamate tunnel -> valley road, driving on the left
+  const Bp = route([[1.65, -1.9], [ROAD_TUNNEL.x1, -1.9], ...RURAL_ROAD.slice(1)]);
+  // ... or up the switchback road to the onsen
+  const M = route([[1.65, -1.9], [ROAD_TUNNEL.x1, -1.9], [96, -1.9], [112, 4], [122, 14], ...MOUNTAIN_ROAD]);
 
   const specs = [
     { path: A, s: 5, kind: 'kei', color: 0xf6f6f0, speed: 4.2 },
@@ -441,8 +348,9 @@ export function createTraffic(scene) {
     { path: Bp, s: 20, kind: 'truck', color: 0xf2f2ea, speed: 3.4 },
     { path: Bp, s: 120, kind: 'kei', color: 0xf2c830, speed: 4.0 },
     { path: Bp, s: 200, kind: 'van', color: 0x9ad87a, speed: 3.6 },
-    { path: Bp, s: 300, kind: 'bus', color: 0xf2ecd8, speed: 3.2 },
-    { path: Bp, s: 390, kind: 'truck', color: 0xe8e8e0, speed: 3.0 },
+    { path: M, s: 300, kind: 'bus', color: 0xf2ecd8, speed: 3.2 },
+    { path: M, s: 90, kind: 'truck', color: 0xe8e8e0, speed: 3.0 },
+    { path: M, s: 470, kind: 'kei', color: 0xd8d8e8, speed: 3.8 },
   ];
   const cars = specs.map((spec) => {
     const mesh = carModel(spec.kind, spec.color);
@@ -454,14 +362,18 @@ export function createTraffic(scene) {
   const ahead = new THREE.Vector3();
   return {
     cars,
-    update(dt, crossingClosed) {
+    // crossings: [{ x, z, active }]
+    update(dt, crossings = []) {
       for (const car of cars) {
         const p = car.path.sample(car.s);
         let want = car.speed;
-        // wait at the level crossing
-        if (crossingClosed && Math.abs(p.x) < 1.7) {
-          if (p.dz < -0.5 && p.z > -5.2 && p.z < -4.2) want = 0;
-          if (p.dz > 0.5 && p.z < -8.8 && p.z > -9.8) want = 0;
+        // wait at level crossings while the lights are on
+        for (const c of crossings) {
+          if (!c.active) continue;
+          const dx = c.x - p.x;
+          const dz = c.z - p.z;
+          const dist = Math.hypot(dx, dz);
+          if (dist > 2.7 && dist < 5.3 && (dx * p.dx + dz * p.dz) / dist > 0.6) want = 0;
         }
         // slow for turns
         const q = car.path.sample(car.s + 1.2);

@@ -3,52 +3,292 @@ import { fbm, lerp, smoothstep } from './rng.js';
 import { shared } from './materials.js';
 
 // World layout (camera looks toward -Z, like the source panorama):
-//   z > -7   flat town level (y = 0): junction, shrine terrace, station
-//   z = -7   railway running along X, into tunnels at both hills
-//   z < -8   town slopes down to the harbour; sea level at SEA
-//   |x| big  wooded hills that wrap the bay
+//   town        x -30..30   flat town, shrine terrace, station, harbour (sea to -Z)
+//   Yamate      x 62..185   farming valley east of the ridge
+//   mountains   z 60..180   high country north of Yamate with the onsen basin
+//   lake        x -17..20, z 90..150  lowland lake south of town
+//   ring        mountains on every land edge; the bay is closed by headlands
+// One railway loops through all of them (see RAIL below).
 
 export const SEA = -3.2;
 export const TRACK_Z = -7;
-export const PORTAL_L = -23; // portals sit on terrain grid lines
-export const PORTAL_R = 28;
-export const EXTENT = { x0: -70, x1: 204, z0: -48, z1: 60 };
+export const EXTENT = { x0: -70, x1: 204, z0: -48, z1: 60 }; // detailed, 1-unit grid
+export const WORLD = { x0: -124, x1: 244, z0: -60, z1: 224 }; // everything, 2-unit grid outside EXTENT
+export const BASIN = { x: 128, z: 104, r: 26, y: 18 };
+export const LAKE = { x: 2, z: 124, r: 25, y: -0.45 };
 
 // East of the town, road B runs through a tunnel in the ridge and comes out
 // in Yamate, a farming valley sitting VALLEY units above sea level.
 export const VALLEY = 3.2;
 export const ROAD_TUNNEL = { x0: 38, x1: 62 };
 export const RURAL_Y = VALLEY + 0.02;
-// The railway climbs through the east tunnel and runs on into Yamate,
-// ending just past Yamate station.
-export const RAIL_EXIT = 62;
-export const RAIL_END = 97;
 export const RAIL_V = VALLEY + 0.02;
-export function railY(x) {
-  return smoothstep(PORTAL_R + 1, RAIL_EXIT - 2, x) * RAIL_V;
-}
 export const RURAL_ROAD = [[62, -1.9], [96, -1.9], [112, 4], [122, 14], [128, 22], [140, 30], [178, 32]];
+// switchback road from the valley up to the onsen basin
+export const MOUNTAIN_ROAD = [[124, 17], [114, 30], [100, 40], [112, 54], [96, 66], [110, 78], [116, 92], [124, 104]];
 
 export function riverZ(x) {
   return 14 + 7 * Math.sin((x - 64) / 16) + 2 * Math.sin(x / 7.3);
 }
 
-export function distToPolyline(x, z, pts) {
-  let best = Infinity;
+// ---------------------------------------------------------------- polylines
+
+// Closest point on a polyline: distance and arc length along it.
+export function closestOnPolyline(x, z, pts) {
+  let best = { d: Infinity, s: 0 };
+  let acc = 0;
   for (let i = 0; i < pts.length - 1; i += 1) {
     const [ax, az] = pts[i];
     const [bx, bz] = pts[i + 1];
     const dx = bx - ax;
     const dz = bz - az;
-    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)));
-    best = Math.min(best, Math.hypot(x - ax - dx * t, z - az - dz * t));
+    const len = Math.hypot(dx, dz);
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (len * len)));
+    const d = Math.hypot(x - ax - dx * t, z - az - dz * t);
+    if (d < best.d) best = { d, s: acc + t * len };
+    acc += len;
   }
   return best;
 }
 
-export function rawHeight(x, z) {
+export function distToPolyline(x, z, pts) {
+  return closestOnPolyline(x, z, pts).d;
+}
+
+function polylineLength(pts) {
+  let len = 0;
+  for (let i = 0; i < pts.length - 1; i += 1) len += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
+  return len;
+}
+export const MOUNTAIN_ROAD_LENGTH = polylineLength(MOUNTAIN_ROAD);
+// The last stretch runs level into the basin.
+export function mountainRoadY(s) {
+  const climb = MOUNTAIN_ROAD_LENGTH - 10;
+  return RURAL_Y + (BASIN.y + 0.02 - RURAL_Y) * smoothstep(0, climb, s) ** 0.9;
+}
+
+// ---------------------------------------------------------------- railway loop
+// Control points [x, z, railTopY]. The loop runs east from Umimi-chō through
+// the ridge to Yamate, crosses the river and the valley road, climbs to the
+// onsen basin, tunnels west under the mountains, drops to the lake and comes
+// back to town through the west hills. Tunnels, bridges and cuttings are
+// decided from the terrain (see analyseRail).
+const RAIL_CTRL = [
+  [12.1, -7, 0], [20, -7, 0], [28, -7, 0], [45, -7, 1.6], [62, -7, RAIL_V], [76, -7, RAIL_V], [90.5, -7, RAIL_V],
+  [104, -7, RAIL_V], [118, -7.2, RAIL_V], [130, -4, RAIL_V], [137, 4, RAIL_V], [138.4, 16, RAIL_V], [138.6, 29, RAIL_V],
+  [140, 42, 4.6], [150, 58, 7], [166, 74, 9.6], [178, 90, 12.2], [176, 106, 14.8], [163, 115, 17.2], [150, 115.5, 18.2],
+  [138, 115.5, 18.2], [124, 117, 17.8], [104, 122, 15.4], [82, 123, 12.2], [60, 119, 8.4], [42, 111, 4.6], [28, 104, 1.8],
+  [16, 100.5, 1.0], [4, 95.5, 1.0], [-10, 86, 1.0], [-28, 70, 0.8], [-44, 50, 0.5], [-54, 26, 0.3], [-54, 6, 0.1],
+  [-46, -5, 0], [-34, -7, 0], [-23, -7, 0], [-10, -7, 0], [0, -7, 0],
+];
+export const RAIL_COVER = 4.4;
+export const RAIL_STATIONS = [
+  { id: 'umimi', name: '海見町', x: 12.1, z: -7, side: 1 },
+  { id: 'yamate', name: '山手', x: 90.5, z: -7, side: 1 },
+  { id: 'onsen', name: '山の湯温泉', x: 144, z: 115.5, side: -1 },
+  { id: 'lake', name: '湖畔', x: 10, z: 98, side: -1 },
+];
+
+class Rail {
+  constructor(ctrl) {
+    const curve = new THREE.CatmullRomCurve3(ctrl.map(([x, z]) => new THREE.Vector3(x, 0, z)), true, 'centripetal');
+    // fine samples by curve parameter, then resample evenly by arc length
+    const n = ctrl.length;
+    const fine = [];
+    const per = 40;
+    for (let i = 0; i < n; i += 1) {
+      for (let k = 0; k < per; k += 1) {
+        const u = k / per;
+        const p = curve.getPoint((i + u) / n);
+        const y = lerp(ctrl[i][2], ctrl[(i + 1) % n][2], u);
+        fine.push([p.x, p.z, y]);
+      }
+    }
+    fine.push(fine[0]);
+    const cum = [0];
+    for (let i = 1; i < fine.length; i += 1) cum.push(cum[i - 1] + Math.hypot(fine[i][0] - fine[i - 1][0], fine[i][1] - fine[i - 1][1]));
+    this.length = cum[cum.length - 1];
+    this.step = 0.5;
+    const count = Math.round(this.length / this.step);
+    this.step = this.length / count;
+    this.x = new Float32Array(count);
+    this.z = new Float32Array(count);
+    this.y = new Float32Array(count);
+    let j = 0;
+    for (let i = 0; i < count; i += 1) {
+      const s = i * this.step;
+      while (j < cum.length - 2 && cum[j + 1] < s) j += 1;
+      const t = (s - cum[j]) / (cum[j + 1] - cum[j] || 1);
+      this.x[i] = lerp(fine[j][0], fine[j + 1][0], t);
+      this.z[i] = lerp(fine[j][1], fine[j + 1][1], t);
+      this.y[i] = lerp(fine[j][2], fine[j + 1][2], t);
+    }
+    // smooth the grade (keeps level stretches level)
+    const ys = Float32Array.from(this.y);
+    for (let i = 0; i < count; i += 1) {
+      let sum = 0;
+      for (let k = -8; k <= 8; k += 1) sum += ys[(i + k + count) % count];
+      this.y[i] = sum / 17;
+    }
+    this.count = count;
+    // spatial hash of segments for fast closest-point queries
+    this.cell = 8;
+    this.grid = new Map();
+    for (let i = 0; i < count; i += 1) {
+      const i2 = (i + 1) % count;
+      const x0 = Math.min(this.x[i], this.x[i2]) - 24;
+      const x1 = Math.max(this.x[i], this.x[i2]) + 24;
+      const z0 = Math.min(this.z[i], this.z[i2]) - 24;
+      const z1 = Math.max(this.z[i], this.z[i2]) + 24;
+      for (let gx = Math.floor(x0 / this.cell); gx <= Math.floor(x1 / this.cell); gx += 1) {
+        for (let gz = Math.floor(z0 / this.cell); gz <= Math.floor(z1 / this.cell); gz += 1) {
+          const key = gx * 100003 + gz;
+          if (!this.grid.has(key)) this.grid.set(key, []);
+          this.grid.get(key).push(i);
+        }
+      }
+    }
+  }
+
+  wrap(s) {
+    return ((s % this.length) + this.length) % this.length;
+  }
+
+  // position, tangent and height at arc length s
+  at(s) {
+    s = this.wrap(s);
+    const f = s / this.step;
+    const i = Math.floor(f) % this.count;
+    const i2 = (i + 1) % this.count;
+    const t = f - Math.floor(f);
+    const dx = this.x[i2] - this.x[i];
+    const dz = this.z[i2] - this.z[i];
+    const len = Math.hypot(dx, dz) || 1;
+    return {
+      x: lerp(this.x[i], this.x[i2], t),
+      z: lerp(this.z[i], this.z[i2], t),
+      y: lerp(this.y[i], this.y[i2], t),
+      tx: dx / len,
+      tz: dz / len,
+      grade: (this.y[i2] - this.y[i]) / len,
+    };
+  }
+
+  // closest point within 24 units: { d, s } or null
+  closest(x, z) {
+    const list = this.grid.get(Math.floor(x / this.cell) * 100003 + Math.floor(z / this.cell));
+    if (!list) return null;
+    let best = null;
+    for (const i of list) {
+      const i2 = (i + 1) % this.count;
+      const ax = this.x[i];
+      const az = this.z[i];
+      const dx = this.x[i2] - ax;
+      const dz = this.z[i2] - az;
+      const l2 = dx * dx + dz * dz || 1;
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2));
+      const d = Math.hypot(x - ax - dx * t, z - az - dz * t);
+      if (!best || d < best.d) best = { d, s: (i + t) * this.step };
+    }
+    return best && best.d < 24 ? best : null;
+  }
+
+  // arc length of the point closest to (x, z)
+  sOf(x, z) {
+    let best = { d: Infinity, s: 0 };
+    for (let i = 0; i < this.count; i += 1) {
+      const d = Math.hypot(this.x[i] - x, this.z[i] - z);
+      if (d < best.d) best = { d, s: i * this.step };
+    }
+    return best.s;
+  }
+}
+
+export const RAIL = new Rail(RAIL_CTRL);
+for (const st of RAIL_STATIONS) st.s = RAIL.sOf(st.x, st.z);
+
+// Tunnel / bridge / cutting sections along the loop, from the terrain the
+// railway would otherwise have to cross.
+let railSections = null;
+export function railSections_() {
+  if (railSections) return railSections;
+  const n = RAIL.count;
+  const type = new Array(n);
+  for (let i = 0; i < n; i += 1) {
+    const depth = baseHeight(RAIL.x[i], RAIL.z[i]) - RAIL.y[i];
+    type[i] = depth > 4.2 ? 'tunnel' : depth < -1.0 ? 'bridge' : 'cut';
+  }
+  // stations and level crossings stay in the open
+  const keepOpen = [...RAIL_STATIONS.map((st) => st.s), ...railCrossings().map((c) => c.s)];
+  for (const s0 of keepOpen) {
+    for (let k = -26; k <= 26; k += 1) type[(Math.round(s0 / RAIL.step) + k + n) % n] = 'cut';
+  }
+  // tidy: fill short gaps inside tunnels, drop very short tunnels/bridges
+  const runs = () => {
+    const out = [];
+    let i0 = 0;
+    for (let i = 1; i <= n; i += 1) {
+      if (i === n || type[i] !== type[i0]) {
+        out.push({ type: type[i0], i0, i1: i - 1 });
+        i0 = i;
+      }
+    }
+    return out;
+  };
+  for (const r of runs()) {
+    const len = r.i1 - r.i0 + 1;
+    if (r.type === 'cut' && len < 10) {
+      const before = type[(r.i0 - 1 + n) % n];
+      const after = type[(r.i1 + 1) % n];
+      if (before === 'tunnel' && after === 'tunnel') for (let i = r.i0; i <= r.i1; i += 1) type[i] = 'tunnel';
+    }
+  }
+  for (const r of runs()) {
+    const len = r.i1 - r.i0 + 1;
+    if ((r.type === 'tunnel' && len < 14) || (r.type === 'bridge' && len < 5)) for (let i = r.i0; i <= r.i1; i += 1) type[i] = 'cut';
+  }
+  railSections = runs().map((r) => ({ type: r.type, s0: r.i0 * RAIL.step, s1: (r.i1 + 1) * RAIL.step }));
+  railSections.typeAt = (s) => type[Math.floor(RAIL.wrap(s) / RAIL.step) % n];
+  return railSections;
+}
+
+// where roads cross the railway at grade
+let crossings = null;
+export function railCrossings() {
+  if (crossings) return crossings;
+  crossings = [
+    { id: 'town', x: 0, z: TRACK_Z },
+    { id: 'yamate', x: 138.6, z: 29 },
+  ].map((c) => ({ ...c, s: RAIL.sOf(c.x, c.z) }));
+  return crossings;
+}
+
+// portals: ends of tunnel sections, with the direction into the hill
+let portals = null;
+export function railPortals() {
+  if (portals) return portals;
+  portals = [];
+  for (const sec of railSections_()) {
+    if (sec.type !== 'tunnel') continue;
+    for (const [s, dir] of [[sec.s0, 1], [sec.s1, -1]]) {
+      const p = RAIL.at(s);
+      portals.push({ s, x: p.x, z: p.z, y: p.y, tx: p.tx * dir, tz: p.tz * dir, sec });
+    }
+  }
+  return portals;
+}
+
+// ---------------------------------------------------------------- terrain
+
+export function rawHeight(x0, z0) {
+  // Region boundaries are domain-warped so valleys and ridges meander; the
+  // town centre (|x|, |z| < ~40) stays exactly as laid out.
+  const warpAmt = 11 * smoothstep(40, 75, Math.hypot(x0, z0 * 1.3));
+  const x = x0 + (fbm(x0 * 0.018 + 31, z0 * 0.018, 3) - 0.5) * 2 * warpAmt;
+  const z = z0 + (fbm(x0 * 0.018, z0 * 0.018 + 57, 3) - 0.5) * 2 * warpAmt;
   const town = 1 - smoothstep(44, 60, x);
   const valley = smoothstep(52, 66, x);
+  const hillNoise = fbm(x * 0.05, z * 0.05 + 40, 4);
   let h = 0;
   const slope = smoothstep(-8.6, -31, z) * town;
   h -= slope * 4.3;
@@ -56,76 +296,60 @@ export function rawHeight(x, z) {
   h += (fbm(x * 0.07 + 11, z * 0.07 - 3, 3) - 0.5) * 1.4 * slope;
   const left = smoothstep(-17, -34, x);
   const ridge = smoothstep(20, 37, x) * (1 - smoothstep(55, 66, x));
-  const hillNoise = fbm(x * 0.05, z * 0.05 + 40, 4);
   h += left * (9 + hillNoise * 7) * smoothstep(-44, -24, z);
   h += ridge * (9 + hillNoise * 8) * smoothstep(-44, -22, z);
   // a knoll behind the shrine
   h += 3.6 * Math.exp(-(((x + 23) / 6) ** 2) - (((z + 1) / 7) ** 2));
   // seabed drops away
   h -= smoothstep(-30, -44, z) * 5 * town;
-  // Yamate valley: a broad floor with wooded walls on three sides
+  // rolling fields south of town toward the lake
+  h += (fbm(x * 0.04 + 7, z * 0.04 + 2, 3) - 0.5) * 1.6 * smoothstep(40, 64, z) * town * (1 - left);
+  // Yamate valley: a broad floor with wooded walls
   h += valley * (VALLEY + (fbm(x * 0.035 + 5, z * 0.035, 3) - 0.5) * 0.9);
   h += valley * smoothstep(-20, -40, z) * (10 + hillNoise * 9);
-  h += valley * smoothstep(38, 56, z) * (12 + hillNoise * 10);
+  h += valley * smoothstep(38, 56, z) * (10 + hillNoise * 8);
   h += smoothstep(182, 200, x) * (12 + hillNoise * 8);
+  // high country north of the valley, with the onsen basin
+  const mz = smoothstep(50, 86, z) * valley;
+  if (mz > 0) {
+    const ridged = 1 - Math.abs(fbm(x * 0.017 + 3, z * 0.017 - 7, 4) * 2 - 1);
+    h += mz * (4 + ridged * ridged * 30);
+    const bd = Math.hypot(x0 - BASIN.x, z0 - BASIN.z);
+    const b = 1 - smoothstep(BASIN.r * 0.5, BASIN.r, bd);
+    if (b > 0) h = lerp(h, BASIN.y + (fbm(x0 * 0.09, z0 * 0.09, 2) - 0.5) * 1.4, b);
+  }
+  // the lake, with a wobbly shoreline
+  const ld = lakeDistance(x0, z0);
+  const lake = 1 - smoothstep(LAKE.r - 5, LAKE.r + 1, ld);
+  if (lake > 0) h = lerp(h, LAKE.y - 1.6, lake);
+  // mountain ring closing the world
+  h += smoothstep(-74, -104, x) * (18 + hillNoise * 16);
+  h += smoothstep(150, 190, z) * (16 + hillNoise * 18) * (1 - lake);
+  h += smoothstep(206, 232, x) * (20 + hillNoise * 16);
   return h;
 }
 
-// Terrain must stay clear of tunnel tubes so their interiors read as holes.
-export const RAIL_COVER = 4.4;
+// distance from the lake centre, with a wobbly shoreline (< LAKE.r is water)
+export function lakeDistance(x, z) {
+  return Math.hypot(x - LAKE.x, (z - LAKE.z) * 1.15) + (fbm(x * 0.08, z * 0.08, 2) - 0.5) * 7;
+}
+
 export const ROAD_COVER = RURAL_Y + 5.4;
 
-// Each portal: where it is, which way the hill lies (+1 = toward +X), and how
-// high the terrain must sit over the tube there. Behind a portal the hill
-// ramps up from that cover height instead of jumping to the ridge top, so
-// there is no see-through gap above the headwall.
-const PORTALS = [
-  { x: PORTAL_L, dir: -1, zc: TRACK_Z, half: 3.2, cover: () => RAIL_COVER },
-  { x: PORTAL_R, dir: 1, zc: TRACK_Z, half: 3.2, cover: (x) => railY(x) + RAIL_COVER },
-  { x: RAIL_EXIT, dir: -1, zc: TRACK_Z, half: 3.2, cover: (x) => railY(x) + RAIL_COVER },
+// Road tunnel portals (the road tunnel is straight along X).
+const ROAD_PORTALS = [
   { x: ROAD_TUNNEL.x0, dir: 1, zc: -1.9, half: 4.2, cover: () => ROAD_COVER },
   { x: ROAD_TUNNEL.x1, dir: -1, zc: -1.9, half: 4.2, cover: () => ROAD_COVER },
 ];
 
-function tunnelCover(x, z, h) {
-  for (const p of PORTALS) {
-    const d = (x - p.x) * p.dir;
-    if (d < 1 || d > 14) continue;
-    const w = 1 - smoothstep(p.half, p.half + 6, Math.abs(z - p.zc));
-    if (w <= 0) continue;
-    const cover = p.cover(x);
-    const ramped = Math.min(Math.max(h, cover), cover + (d - 1) * 1.15);
-    h = lerp(h, ramped, w);
-  }
-  const railBand = Math.abs(z - TRACK_Z) < 3.2;
-  if (railBand && x <= PORTAL_L - 1 && x > PORTAL_L - 17) return Math.max(h, RAIL_COVER);
-  if (railBand && x >= PORTAL_R + 1 && x <= RAIL_EXIT - 1) return Math.max(h, railY(x) + RAIL_COVER);
-  if (Math.abs(z - ROAD_B_Z) < 4.2 && x >= ROAD_TUNNEL.x0 + 1 && x <= ROAD_TUNNEL.x1 - 1) return Math.max(h, ROAD_COVER);
-  return h;
-}
-
-// One-cell holes in the terrain right behind each portal (the terrain can't
-// be vertical there); a lid box covers them from above.
-export const TERRAIN_HOLES = [
-  { x0: PORTAL_L - 1, x1: PORTAL_L, zc: TRACK_Z, hz: 2, top: RAIL_COVER },
-  { x0: PORTAL_R, x1: PORTAL_R + 1, zc: TRACK_Z, hz: 2, top: RAIL_COVER },
-  { x0: RAIL_EXIT - 1, x1: RAIL_EXIT, zc: TRACK_Z, hz: 2, top: RAIL_COVER },
-  { x0: ROAD_TUNNEL.x0, x1: ROAD_TUNNEL.x0 + 1, zc: -1.9, hz: 3, top: ROAD_COVER },
-  { x0: ROAD_TUNNEL.x1 - 1, x1: ROAD_TUNNEL.x1, zc: -1.9, hz: 3, top: ROAD_COVER },
-];
-
-export function heightAt(x, z) {
+// Everything except the railway: roads, river, quay, road tunnel cover.
+export function baseHeight(x, z) {
   let h = rawHeight(x, z);
-  // railway cutting between the tunnel portals
-  if (x >= PORTAL_L && x <= PORTAL_R) {
-    // the cutting widens where it bites into the hills
-    const deep = Math.max(0, x - 18, -16 - x);
-    const band = 1 - smoothstep(1.5, 3.2 + Math.min(deep * 0.45, 4), Math.abs(z - TRACK_Z));
-    h = lerp(h, Math.min(h, 0), band);
-  }
   // keep the road to the harbour on a clean line
   const road = 1 - smoothstep(2.2, 4.2, Math.abs(x));
   if (z < -7 && z > -31) h = lerp(h, roadHeight(z) - 0.14, road);
+  // road A continues south to the lake
+  if (z > 30 && z < 84) h = lerp(h, 0.03 - 0.14, road);
   // road B climbs gently east ("yuunagi-zaka") up to the road tunnel
   if (x > 2 && x <= ROAD_TUNNEL.x0) {
     const deep = Math.max(0, x - 24);
@@ -142,17 +366,74 @@ export function heightAt(x, z) {
       h = lerp(h, VALLEY - 1.15, carve);
     }
   }
-  // railway cutting across the valley floor
-  if (x >= RAIL_EXIT && x <= RAIL_END + 4) {
-    const band = 1 - smoothstep(1.5, 3.2, Math.abs(z - TRACK_Z));
-    h = lerp(h, RAIL_V - 0.08, band);
-  }
   // harbour quay
   if (z < -16) {
     const q = (1 - smoothstep(8, 10.5, Math.abs(x))) * smoothstep(-31.4, -30.6, z);
     h = lerp(h, Math.max(h, QUAY), q);
   }
-  return tunnelCover(x, z, h);
+  // the switchback road climbs a gorge it has carved for itself
+  if (z > 10 && x > 80 && x < 140) {
+    const { d, s: along } = closestOnPolyline(x, z, MOUNTAIN_ROAD);
+    if (d < 22) {
+      const ry = mountainRoadY(along);
+      const limit = ry + 1.2 + Math.max(0, d - 2.2) * 0.85 + Math.max(0, d - 7) ** 2 * 0.45;
+      h = lerp(h, Math.min(h, limit), 1 - smoothstep(14, 22, d));
+      const band = 1 - smoothstep(1.9, 3.4, d);
+      if (band > 0) h = lerp(h, ry - 0.14, band);
+    }
+  }
+  // road tunnel: hill ramps up behind each portal and covers the tube
+  for (const p of ROAD_PORTALS) {
+    const d = (x - p.x) * p.dir;
+    if (d < 1 || d > 14) continue;
+    const w = 1 - smoothstep(p.half, p.half + 6, Math.abs(z - p.zc));
+    if (w <= 0) continue;
+    const cover = p.cover(x);
+    h = lerp(h, Math.min(Math.max(h, cover), cover + (d - 1) * 1.15), w);
+  }
+  if (Math.abs(z - ROAD_B_Z) < 4.2 && x >= ROAD_TUNNEL.x0 + 1 && x <= ROAD_TUNNEL.x1 - 1) h = Math.max(h, ROAD_COVER);
+  return h;
+}
+
+// Final terrain: the railway cuts, fills or tunnels through the base terrain.
+export function heightAt(x, z) {
+  let h = baseHeight(x, z);
+  const q = RAIL.closest(x, z);
+  if (!q) return h;
+  const secs = railSections_();
+  const type = secs.typeAt(q.s);
+  const ry = RAIL.at(q.s).y;
+  if (type === 'tunnel') {
+    const sec = secs.find((sc) => q.s >= sc.s0 && q.s < sc.s1) ?? { s0: q.s, s1: q.s };
+    const dp = Math.min(q.s - sec.s0, sec.s1 - q.s);
+    const cover = ry + RAIL_COVER;
+    const w = 1 - smoothstep(3.2, 9, q.d);
+    h = lerp(h, Math.min(Math.max(h, cover), cover + dp * 1.15), w);
+    if (q.d < 3.2) h = Math.max(h, cover);
+  } else if (type === 'cut') {
+    const depth = Math.abs(h - ry);
+    const band = 1 - smoothstep(1.5, 3.2 + Math.min(depth * 0.5, 4), q.d);
+    h = lerp(h, ry - 0.1, band);
+  }
+  return h;
+}
+
+// Terrain cells to leave out: right behind each portal the ground would have
+// to be vertical, so a lid covers the hole instead.
+export function isTerrainHole(cx, cz, step) {
+  // road tunnel (axis aligned)
+  if (Math.abs(cz - ROAD_B_Z) < 3) {
+    if (cx > ROAD_TUNNEL.x0 && cx < ROAD_TUNNEL.x0 + 1) return true;
+    if (cx > ROAD_TUNNEL.x1 - 1 && cx < ROAD_TUNNEL.x1) return true;
+  }
+  for (const p of railPortals()) {
+    const dx = cx - p.x;
+    const dz = cz - p.z;
+    const u = dx * p.tx + dz * p.tz;
+    const v = -dx * p.tz + dz * p.tx;
+    if (u > 0 && u < step + 0.6 && Math.abs(v) < 2.6) return true;
+  }
+  return false;
 }
 
 export const QUAY = SEA + 0.6;
@@ -172,9 +453,10 @@ const HILL = [0x3f7d3a, 0x356f35, 0x4d8c40, 0x2f6431];
 const SAND = 0xe5d3a0;
 const ROCK = 0x8a8f82;
 
-export function buildTerrain() {
-  const step = 1;
-  const { x0, x1, z0, z1 } = EXTENT;
+// Terrain mesh over `extent` at `step` spacing; `skip` is an inner extent that
+// another mesh already covers.
+export function buildTerrain(extent = EXTENT, step = 1, skip = null) {
+  const { x0, x1, z0, z1 } = extent;
   const nx = Math.round((x1 - x0) / step);
   const nz = Math.round((z1 - z0) / step);
   const positions = [];
@@ -192,11 +474,14 @@ export function buildTerrain() {
     const lo = Math.min(a[1], b[1], d[1]);
     const steep = (hi - lo) / step;
     const n = fbm(cx * 0.21, cz * 0.21, 2);
-    const rural = cx > ROAD_TUNNEL.x1;
+    const rural = cx > ROAD_TUNNEL.x1 || cz > 60;
     if (cy < SEA + 0.35) c.set(SAND);
+    else if (cy > 54 + n * 8) c.set(steep > 1.3 ? 0xc8ccd6 : 0xf2f4f8); // summer snow on the highest peaks
+    else if (cy > 36 + n * 6) c.set(steep > 1.0 ? 0x8a8a84 : n > 0.5 ? 0x8a9a58 : 0x7a8a50); // alpine meadow + scree
     else if (steep > 1.45) c.set(ROCK);
-    else if (rural && cy < VALLEY - 0.6) c.set(n > 0.5 ? 0xa8a290 : 0x948e7c);
-    else if (rural ? steep > 0.5 || cy > VALLEY + 2 : cy > 1.2 || Math.abs(cx) > 22) c.set(HILL[Math.floor(n * 3.99)]);
+    else if (cx > ROAD_TUNNEL.x1 && cy < VALLEY - 0.6 && cz < 40) c.set(n > 0.5 ? 0xa8a290 : 0x948e7c);
+    else if (cz > 60 && cx < 60 && lakeDistance(cx, cz) < LAKE.r + 2.5) c.set(n > 0.5 ? 0xd8cca0 : 0xc8bc90); // lake shore
+    else if (rural ? steep > 0.5 || cy > (cx > 58 ? VALLEY + 2 : 2.5) : cy > 1.2 || Math.abs(cx) > 22) c.set(HILL[Math.floor(n * 3.99)]);
     else c.set(GRASS[Math.floor(n * 3.99)]);
     const shade = 0.94 + ((Math.sin(cx * 12.9898 + cz * 78.233) * 43758.5453) % 1) * 0.06;
     c.multiplyScalar(shade);
@@ -214,7 +499,8 @@ export function buildTerrain() {
       const p11 = [xa + step, H(i + 1, j + 1), za + step];
       const cxm = xa + step / 2;
       const czm = za + step / 2;
-      if (TERRAIN_HOLES.some((o) => cxm > o.x0 && cxm < o.x1 && Math.abs(czm - o.zc) < o.hz)) continue;
+      if (skip && cxm > skip.x0 && cxm < skip.x1 && czm > skip.z0 && czm < skip.z1) continue;
+      if (isTerrainHole(cxm, czm, step)) continue;
       if ((i + j) % 2 === 0) {
         pushTri(p00, p01, p11);
         pushTri(p00, p11, p10);

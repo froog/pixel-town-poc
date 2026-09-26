@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { gableGeometry, hipGeometry, mat4 } from './batcher.js';
 import {
-  heightAt, PORTAL_L, PORTAL_R, QUAY, RAIL_COVER, RAIL_END, RAIL_EXIT, RAIL_V, railY, ROAD_COVER, ROAD_TUNNEL, roadBHeight, roadHeight, ROAD_B_Z, SEA, TRACK_Z,
+  heightAt, QUAY, RAIL_V, ROAD_COVER, ROAD_TUNNEL, roadBHeight, roadHeight, ROAD_B_Z, SEA, TRACK_Z,
 } from './terrain.js';
 import { tunnel } from './tunnel.js';
 import { makeSign } from './signs.js';
@@ -213,38 +213,11 @@ export function roads(B, rng, decor) {
 // ---------------------------------------------------------------- railway
 
 export function railway(B, decor) {
-  const x0 = PORTAL_L - 14;
-  const x1 = RAIL_END;
-  // ballast, ties and rails follow the climb through the east tunnel
-  for (let x = x0; x < x1; x += 1) {
-    const ya = railY(x);
-    const yb = railY(x + 1);
-    const pitch = Math.atan2(yb - ya, 1);
-    const ym = (ya + yb) / 2;
-    B.box('solid', 1.02, 0.14, 2.6, x + 0.5, ym + 0.01, TRACK_Z, 0x8e8a80, { rz: pitch, jitter: 0.04 });
-    for (const dz of [-0.55, 0.55]) B.box('solid', 1.01, 0.1, 0.07, x + 0.5, ym + 0.19, TRACK_Z + dz, 0xa2a8ae, { rz: pitch });
-  }
-  for (let x = x0; x < x1; x += 0.55) {
-    if (x > -1.8 && x < 1.8) continue;
-    B.box('solid', 0.22, 0.07, 2.0, x, railY(x) + 0.11, TRACK_Z, 0x5a4636);
-  }
-  // buffer stop at the end of the line
-  B.at(x1 + 0.2, RAIL_V, TRACK_Z, 0, () => {
-    B.block('solid', 0.5, 0.7, 2.0, 0, 0, 0, 0x6a4a30);
-    B.block('solid', 0.3, 0.3, 1.6, -0.3, 0.45, 0, 0xd8322a);
-    B.box('glow', 0.06, 0.16, 0.16, -0.46, 0.6, 0, 0xd83a2a, { lit: 1, emit: 0xff3020 });
-  });
-  // crossing deck
+  // crossing deck where road A meets the line (the loop itself is in rail.js)
   B.block('solid', 3.2, 0.16, 2.6, 0, 0, TRACK_Z, 0x4e5256);
   for (const dx of [-1.62, 1.62]) {
     for (let i = 0; i < 5; i += 1) B.box('solid', 0.06, 0.02, 0.5, dx, 0.17, TRACK_Z - 1.1 + i * 0.55, i % 2 ? 0x222222 : 0xf2d020);
   }
-  // west tunnel is a dead end; the east one climbs through to Yamate
-  tunnel(B, decor, { xa: PORTAL_L - 14, xb: PORTAL_L, zc: TRACK_Z, floorY: () => -0.08, W: 2.8, wallH: 1.55, openA: false, cover: RAIL_COVER });
-  tunnel(B, decor, {
-    xa: PORTAL_R, xb: RAIL_EXIT, zc: TRACK_Z, floorY: (x) => railY(x) - 0.08, W: 2.8, wallH: 1.55,
-    cover: (x) => railY(x) + RAIL_COVER, lampStep: 4,
-  });
   yamateStation(B, decor);
 }
 
@@ -388,8 +361,8 @@ export function postBox(B, x, z) {
   B.box('solid', 0.22, 0.04, 0.02, x, 0.78, z + 0.2, 0x1a1a1a);
 }
 
-export function curveMirror(B, x, z, ry) {
-  B.at(x, 0.1, z, ry, () => {
+export function curveMirror(B, x, z, ry, y = 0.1) {
+  B.at(x, y, z, ry, () => {
     B.geo('solid', cyl8, 0, 1.3, 0, 0xf07a2a, { sx: 0.05, sy: 2.6, sz: 0.05 });
     B.geo('solid', cyl8, 0, 2.6, 0.08, 0xf07a2a, { sx: 0.32, sy: 0.06, sz: 0.32, rx: Math.PI / 2 });
     B.geo('glow', cyl8, 0, 2.6, 0.12, 0xb8d8f0, { sx: 0.26, sy: 0.02, sz: 0.26, rx: Math.PI / 2, lit: 0 });
@@ -572,6 +545,12 @@ export function mountains(rng) {
       addPeak(side * (52 + i * 16), -72 - i * 20, rng.range(12, 20), rng.range(6, 13), 0x3f7f3e);
     }
   }
+  // close the east side of the bay
+  for (let i = 0; i < 6; i += 1) addPeak(100 + i * 20 + rng.range(-6, 6), -70 - rng.range(0, 60), rng.range(18, 28), rng.range(12, 24), 0x3a7a3a);
+  // distant skyline beyond the mountain ring
+  for (let i = 0; i < 14; i += 1) addPeak(-160 + i * 32 + rng.range(-8, 8), 250 + rng.range(0, 40), rng.range(30, 46), rng.range(34, 60), 0x4a6a58);
+  for (let i = 0; i < 8; i += 1) addPeak(-160 - rng.range(0, 30), -40 + i * 38, rng.range(26, 40), rng.range(26, 46), 0x4a6a58);
+  for (let i = 0; i < 8; i += 1) addPeak(270 + rng.range(0, 30), -40 + i * 38, rng.range(26, 40), rng.range(26, 46), 0x4a6a58);
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(B_positions, 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -636,4 +615,56 @@ export function ricePaddies(B, rng, x0, z0, x1, z1, cell = 3.6) {
   for (let x = x0; x + cell <= x1 + 0.01; x += cell) {
     for (let z = z0; z + cell <= z1 + 0.01; z += cell) paddyCell(B, rng, x, z, cell);
   }
+}
+
+// ---------------------------------------------------------------- small details
+
+export function bicycle(B, x, z, ry, hex = 0x2f5fa8) {
+  const y = heightAt(x, z);
+  B.at(x, y, z, ry, () => {
+    for (const dx of [-0.3, 0.3]) B.geo('solid', new THREE.TorusGeometry(0.2, 0.025, 4, 10), dx, 0.22, 0, 0x222222);
+    B.box('solid', 0.6, 0.04, 0.04, 0, 0.36, 0, hex, { rz: 0.2 });
+    B.box('solid', 0.04, 0.3, 0.04, 0.12, 0.42, 0, hex);
+    B.box('solid', 0.16, 0.04, 0.08, 0.12, 0.58, 0, 0x222222);
+    B.box('solid', 0.04, 0.04, 0.34, 0.3, 0.6, 0, 0x888888);
+    B.box('solid', 0.2, 0.12, 0.16, 0.38, 0.52, 0, 0x9a9a9a); // basket
+  });
+}
+
+export function mailbox(B, x, z, ry) {
+  const y = heightAt(x, z);
+  B.at(x, y, z, ry, () => {
+    B.block('solid', 0.05, 0.9, 0.05, 0, 0, 0, 0x6a6a64);
+    B.block('solid', 0.28, 0.22, 0.2, 0, 0.9, 0, 0xc8c8c0);
+  });
+}
+
+// Hokora: a tiny roadside shrine on a stone plinth, with offerings.
+export function hokora(B, x, z, ry) {
+  const y = heightAt(x, z);
+  B.at(x, y, z, ry, () => {
+    B.block('solid', 0.7, 0.35, 0.6, 0, 0, 0, 0x9a9a90);
+    B.block('solid', 0.5, 0.45, 0.4, 0, 0.35, 0, 0x8a6040);
+    B.box('solid', 0.3, 0.3, 0.02, 0, 0.55, 0.21, 0x3a2418);
+    B.geo('solid', gableGeometry(0.75, 0.62, 0.28), 0, 0.8, 0, 0x3c3e44, { ry: Math.PI / 2 });
+    B.box('solid', 0.12, 0.12, 0.08, -0.15, 0.4, 0.34, 0xf2f2ea); // sake cup
+    B.box('solid', 0.1, 0.08, 0.1, 0.16, 0.4, 0.34, 0xe07a3a); // offering
+    B.box('foliage', 0.5, 0.03, 0.03, 0, 0.78, 0.24, 0xe8d8a0, { sway: 0 }); // rope
+  });
+}
+
+// Mujin hanbai: unmanned roadside vegetable stand with a coin box.
+export function mujinStand(B, rng, x, z, ry) {
+  const y = heightAt(x, z);
+  B.at(x, y, z, ry, () => {
+    for (const dx of [-0.6, 0.6]) for (const dz of [-0.3, 0.3]) B.block('solid', 0.06, 1.3, 0.06, dx, 0, dz, 0x8a6a44);
+    B.block('solid', 1.3, 0.05, 0.7, 0, 0.6, 0, 0xa8784a);
+    B.block('solid', 1.3, 0.05, 0.5, 0, 0.95, -0.08, 0xa8784a);
+    B.geo('solid', gableGeometry(1.6, 1.0, 0.25), 0, 1.3, 0, 0x7a8a9a);
+    const veg = [0xd83a2a, 0x3aa84a, 0xf28a2a, 0x8a4ac8, 0xf2f2ea, 0x6ab84a];
+    for (let i = 0; i < 4; i += 1) B.box('solid', 0.22, 0.12, 0.2, -0.45 + i * 0.3, 0.71, 0.1, rng.pick(veg));
+    for (let i = 0; i < 3; i += 1) B.box('solid', 0.22, 0.12, 0.2, -0.3 + i * 0.3, 1.05, -0.1, rng.pick(veg));
+    B.box('solid', 0.18, 0.16, 0.14, 0.52, 0.71, 0.2, 0x5a3a26); // coin box
+    B.box('solid', 0.5, 0.26, 0.02, 0, 1.18, 0.36, 0xf6f6f0); // price sign
+  });
 }

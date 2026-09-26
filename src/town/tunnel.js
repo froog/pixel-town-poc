@@ -111,11 +111,10 @@ export function tunnel(B, decor, opts) {
 }
 
 // Stone headwall facing +X (s = 1) or -X (s = -1) with an arched opening.
-function portal(B, x, zc, y0, W, wallH, s, cover) {
+export function portal(B, x, zc, y0, W, wallH, s, cover, thick = 0.7) {
   const R = W / 2;
   const side = 1.3;
   const top = cover + 0.25;
-  const thick = 0.7;
   const cx = x + s * (thick / 2 - 0.05);
   // piers either side of the opening
   for (const sz of [-1, 1]) {

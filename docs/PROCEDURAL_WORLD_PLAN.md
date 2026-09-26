@@ -4,6 +4,103 @@ How to turn Umimi-chō + Yamate from a hand-laid diorama into a seeded,
 procedurally generated Japanese coastal/countryside world, and which
 countryside details to add as assets.
 
+## 0. Built since this plan (September 2026)
+
+The world is now one enclosed map, and several of the plan's ideas exist in
+code. They are the foundations the procedural phases should build on.
+
+### World frame: closed on every side
+
+- **Two terrain grids.** `EXTENT` (town + Yamate) at 1-unit cells and `WORLD`
+  (everything else) at 2-unit cells, which skips the inner extent. The same
+  `heightAt()` drives both, so seams line up at shared vertices.
+- **Enclosure.** A mountain ring on every land edge (`rawHeight`, "mountain
+  ring closing the world") plus distant skyline cones; the bay is closed by
+  headlands and the ridge across the water. Nothing shows a map edge from
+  inside, so walking, flying, and later riding or sailing can go anywhere
+  without special casing.
+- **Domain-warped regions.** Region boundaries (valley walls, ridges, rings)
+  run through a noise warp that fades to zero at the town centre, so valleys
+  meander while hand-placed town content stays put.
+- **Regions today:** town + bay, Yamate valley, mountains with the onsen
+  basin (`BASIN`), lake lowland (`LAKE`), mountain ring.
+
+### Networks: the railway loop as the first generic network
+
+`terrain.js` defines the loop as control points `[x, z, railTopY]` and turns
+it into a real network. The same recipe should apply to generated roads:
+
+1. **Spline + resample.** A centripetal Catmull-Rom through the control points,
+   resampled every 0.5 units, with the grade smoothed along arc length.
+2. **Spatial hash.** Segments are bucketed in an 8-unit grid, so
+   `RAIL.closest(x, z)` is cheap enough to run inside `heightAt` for every
+   terrain vertex.
+3. **Section analysis** (`railSections_`). For each sample, compare the base
+   terrain with the rail height: deeper than 4.2 is a tunnel, more than 1.0
+   below is a bridge, anything else is a cutting or embankment. Clean-up
+   rules then fill short gaps inside tunnels, drop tunnels under 7 units and
+   bridges under 2.5, and keep stations and level crossings in the open.
+4. **Terrain response** (`heightAt = railMods(baseHeight)`):
+   - **Cuttings/embankments:** flatten a band that widens with depth.
+   - **Tunnels:** keep the hill at least `railY + 4.4` above the tube.
+   - **Behind each portal:** the hill ramps up from that cover height, so the
+     headwall never shows a see-through slot.
+5. **Portals.** A cell-sized terrain hole right behind each portal (the ground
+   can't be vertical there), covered by a lid and a headwall sized to the
+   actual terrain row behind it. Twin portals (rail beside road) therefore
+   merge into one wall.
+6. **Geometry from sections.** Ballast, rails and sleepers along the whole
+   loop; a tube with depth-darkened walls and sodium lamps inside tunnels;
+   deck, railings, piers and abutments for bridges.
+
+This is the "route crosses a ridge → tunnel" rule from section 3, working.
+Generated roads should reuse it with road-specific thresholds; the road
+tunnel is still hand-written and should move onto it.
+
+### Travel-ready structure (for riding trains and boats later)
+
+- **Stations are data.** `RAIL_STATIONS` (id, name, position, platform side,
+  arc length `s`) drives platforms, tram stops, door sides and walkable
+  platform heights. A "ride" mode only needs to attach the camera to a tram
+  and read the next stop.
+- **Trams are kinematic on arc length.** Each tram has `s` and `v`, brakes
+  toward the next stop with `v = min(cruise, sqrt(2·a·d))`, dwells with doors,
+  and places its cars from `RAIL.at(s)` (position, heading, grade). Adding
+  trams is one line, and they never need per-segment logic.
+- **Crossings are data** (`railCrossings`): the rail system reports
+  `crossingActive[id]`; barriers, lights, bells and every car read the same
+  flags.
+- **Water is bounded.** The bay is enclosed; the lake has a centre, radius
+  and `lakeDistance()`. Boat routes can be closed curves checked against
+  `heightAt < SEA / LAKE.y` (the swan boats and sailboats already follow
+  such loops).
+- **Next step.** Treat rail, roads and boat routes as one *transport graph*
+  (nodes = stations, piers, bus stops; edges = splines with a mode), so
+  "travel to the lake" is a path query, whichever mode it uses.
+
+### Placement building blocks now in the code
+
+| Building block | Where | Use in the procedural phases |
+| --- | --- | --- |
+| Instanced forest (`forest.js`) | outer region, ~6k trees in 4 species | L5 bulk vegetation; foliage sway uses the instance position for phase |
+| Species by altitude | sugi/broadleaf low, pine/birch higher, dwarf near the treeline | a first biome rule set |
+| Footpaths (`paths.js`) | Catmull-Rom + noise meander, draped on terrain; dirt, gravel, stone, stepping-stone styles | L6 detail network; `pathToRoad(door, road)` links every building to the road graph |
+| Doors as outputs | `house()` and `minka()` return door positions | lets the detail pass connect buildings without knowing their internals |
+| Detail props | hokora, mujin hanbai stand, bicycle, mailbox, curve mirrors at hairpins, guardrails on the downhill side | the "systematic edge details" of L6 |
+| Steam (`createSteam`) | GPU particles: rise/drift/fade in the vertex shader | reusable for smoke, spray, mist |
+| Claims | per-module `claim()/free()` lists | should become one spatial hash shared by all modules |
+
+### Lessons worth keeping
+
+- **Carve before you place.** Roads and rails modify terrain in `heightAt`,
+  and everything else samples the final height. The gorge carve up the
+  switchback road has to fade out smoothly, or it leaves a cliff.
+- **Summer snow only on the highest peaks** (above ~54) keeps the season
+  readable.
+- **Geometry budget.** About 1M vertices is fine on desktop and loads in
+  ~4.5 s on an emulated phone. Instancing is the lever; merged batching is
+  for unique buildings only.
+
 ## 1. Where we are
 
 What already exists and can be reused as-is:

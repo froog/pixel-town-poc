@@ -4,22 +4,29 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Batcher } from './town/batcher.js';
 import { makeRng } from './town/rng.js';
 import { shared, toonRamp } from './town/materials.js';
-import { buildSea, buildTerrain, heightAt, roadBHeight, SEA, TRACK_Z } from './town/terrain.js';
+import {
+  BASIN, buildSea, buildTerrain, closestOnPolyline, EXTENT, heightAt, LAKE, lakeDistance, MOUNTAIN_ROAD, RAIL, roadBHeight, SEA, TRACK_Z, WORLD,
+} from './town/terrain.js';
+import { buildRailway, createRailSystem } from './town/rail.js';
 import { buildClouds, buildSkyDome, sampleSky, sunDirection } from './town/sky.js';
 import { garageHouse, groundRange, house, shrineComplex, shrineHall, station } from './town/buildings.js';
 import {
   bigTree, bush, curveMirror, harbour, hydrangea, lighthouseIsland, lowWall, mountains, noticeBoard,
-  pineTree, playground, ricePaddies, postBox, railway, recycleBins, roads, roundTree, schoolSign, stonePillar,
+  bicycle, hokora, mailbox, pineTree, playground, ricePaddies, postBox, railway, recycleBins, roads, roundTree, schoolSign, stonePillar,
   utilityPole, vendingMachine, wires,
 } from './town/props.js';
 import {
-  createBoats, createCat, createCrossing, createFireflies, createGulls, createLighthouseBeam, createTraffic, createTram,
+  createBoats, createCat, createCrossing, createFireflies, createGulls, createLighthouseBeam, createTraffic,
 } from './town/life.js';
 import { PixelPass } from './town/pixelPass.js';
 import { updateSigns } from './town/signs.js';
 import { tubeMaterial } from './town/tunnel.js';
 import { Soundscape } from './town/audio.js';
-import { buildRural } from './town/rural.js';
+import { buildRural, sugi } from './town/rural.js';
+import { buildLake } from './town/lake.js';
+import { buildMountain } from './town/mountain.js';
+import { createForest } from './town/forest.js';
+import { footpath, pathToRoad } from './town/paths.js';
 import { createWalker, zoneAt } from './town/walk.js';
 import { DENSITY, LITE } from './town/quality.js';
 import { PLATEAU, PLATFORM, SHRINE, STAIRS, STATION_STOP_X } from './town/layout.js';
@@ -49,7 +56,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.minDistance = 3;
-controls.maxDistance = 95;
+controls.maxDistance = 520;
 controls.maxPolarAngle = 1.48;
 controls.autoRotateSpeed = 0.35;
 
@@ -91,6 +98,11 @@ terrain.receiveShadow = true;
 terrain.castShadow = true;
 terrain.name = 'terrain';
 world.add(terrain);
+const highlands = new THREE.Mesh(buildTerrain(WORLD, 2, EXTENT), terrain.material);
+highlands.receiveShadow = true;
+highlands.castShadow = true;
+highlands.name = 'terrain:outer';
+world.add(highlands);
 
 const sea = buildSea();
 world.add(sea);
@@ -107,6 +119,7 @@ const claim = (x, z, r) => occupied.push([x, z, r]);
 // roads, railway, station, shrine
 decor.add(...roads(B, rng, decor));
 railway(B, decor);
+buildRailway(B, decor);
 station(B, decor);
 shrineComplex(B, rng, { procedural: false });
 claim((PLATEAU.x0 + PLATEAU.x1) / 2, (PLATEAU.z0 + PLATEAU.z1) / 2, 7);
@@ -138,6 +151,9 @@ const swings = playground(B, world, 7.2, 4.8);
 claim(7.2, 4.8, 3.6);
 
 await tick('building houses');
+const slopeDoors = [];
+const hillDoors = [];
+const frontDoors = [];
 // town houses on the slope down to the harbour
 for (let gz = -11; gz > -30; gz -= 3.9) {
   for (let gx = -40; gx < 44; gx += 4.3) {
@@ -150,7 +166,7 @@ for (let gz = -11; gz > -30; gz -= 3.9) {
     if (!free(x, z, 1.6)) continue;
     const { lo, hi } = groundRange(x, z, 3, 2.6);
     if (hi - lo > 1.6) continue;
-    house(B, rng, { x, z, ry: rng.range(-0.12, 0.12) });
+    slopeDoors.push(house(B, rng, { x, z, ry: rng.range(-0.12, 0.12) }).door);
     claim(x, z, 1.7);
   }
 }
@@ -163,14 +179,14 @@ for (const [x0, x1, z0, z1] of [[-40, -19, -5, 14], [20, 42, 1.5, 14]]) {
       if (heightAt(x, z) > 11 || !rng.chance(0.7) || !free(x, z, 1.7)) continue;
       const { lo, hi } = groundRange(x, z, 3, 2.6);
       if (hi - lo > 1.1) continue;
-      house(B, rng, { x, z, ry: rng.range(-0.3, 0.3) });
+      hillDoors.push(house(B, rng, { x, z, ry: rng.range(-0.3, 0.3) }).door);
       claim(x, z, 1.8);
     }
   }
 }
 // foreground streets
 for (const [x, z, ry] of [[-9, 10.5, 0.05], [-13.2, 11.2, -0.08], [-5.6, 12.8, 0], [11.5, 9, 0], [15.6, 8.6, 0.06], [19.8, 9.4, -0.05], [13.6, 13.5, 0]]) {
-  house(B, rng, { x, z, ry });
+  frontDoors.push(house(B, rng, { x, z, ry }).door);
   claim(x, z, 1.8);
 }
 // seaside row near the quay
@@ -181,6 +197,28 @@ for (let x = -9; x <= 9; x += 3.4) {
   claim(x, -27.6, 1.6);
 }
 harbour(B, rng);
+
+// stepped lanes from the slope houses down to the main road, and between
+// neighbours; dirt tracks for the hill houses; bikes and mailboxes by doors
+{
+  const roadA = [[0, -8.4], [0, -30]];
+  for (const d of slopeDoors) pathToRoad(B, d, roadA, { style: 'stone', maxLength: 16, roadHalf: 2.8 });
+  const sorted = [...slopeDoors].sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+  for (let i = 0; i < sorted.length - 1; i += 1) {
+    const [a, b] = [sorted[i], sorted[i + 1]];
+    if (Math.abs(a[1] - b[1]) < 2.5 && Math.abs(a[0] - b[0]) < 6.5 && Math.sign(a[0]) === Math.sign(b[0])) {
+      footpath(B, [a, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + 0.8], b], { style: 'stone', wander: 0.4 });
+    }
+  }
+  for (const d of hillDoors) pathToRoad(B, d, [[2, -1.9], [38, -1.9]], { style: 'dirt', maxLength: 18, roadHalf: 1.6 });
+  for (const d of frontDoors) pathToRoad(B, d, [[0, -8], [0, 30]], { style: 'gravel', maxLength: 18, roadHalf: 2.8 });
+  for (const d of [...slopeDoors, ...frontDoors]) {
+    if (rng.chance(0.3)) bicycle(B, d[0] + 0.9, d[1] - 0.1, rng.range(-0.4, 0.4), rng.pick([0x2f5fa8, 0xd83a2a, 0xe8e8e0, 0x3aa84a]));
+    if (rng.chance(0.3)) mailbox(B, d[0] - 0.9, d[1] + 0.2, 0);
+  }
+  hokora(B, -3.2, -12, 0);
+  hokora(B, 3.4, -20.5, Math.PI);
+}
 ricePaddies(B, rng, -18.4, 15.6, -3.9, 30);
 ricePaddies(B, rng, 3.6, 16.6, 25.2, 30);
 claim(-11, 23, 8);
@@ -225,6 +263,7 @@ for (let i = 0; i < 1400 * DENSITY; i += 1) {
   if (Math.abs(z - TRACK_Z) < 2 && x > -24 && x < 29) continue;
   if (Math.abs(z + 1.9) < 2.3 && x > 1) continue;
   if (x > 54) continue; // Yamate plants its own forest
+  if ((RAIL.closest(x, z)?.d ?? 99) < 3.5) continue;
   if (!free(x, z, 0.8)) continue;
   const s = rng.range(0.8, 1.5) * (hilly ? 1.1 : 0.9);
   if (rng.chance(0.4)) pineTree(B, rng, x, z, s);
@@ -235,6 +274,46 @@ for (let i = 0; i < 1400 * DENSITY; i += 1) {
 // Yamate valley beyond the road tunnel
 await tick('farming Yamate');
 const rural = buildRural(B, decor, rng, world);
+await tick('filling the lake');
+const lake = buildLake(B, decor, rng, world);
+await tick('heating the springs');
+const mountain = buildMountain(B, decor, rng, world);
+
+// instanced forest over everything outside the detailed town/valley grid
+await tick('growing the mountains');
+{
+  const pts = [];
+  const frng = makeRng(911);
+  const blocked = [...lake.claims, ...mountain.claims];
+  const tries = 16000 * DENSITY;
+  for (let i = 0; i < tries; i += 1) {
+    const x = frng.range(WORLD.x0 + 4, WORLD.x1 - 4);
+    const z = frng.range(WORLD.z0 + 4, WORLD.z1 - 4);
+    if (x > EXTENT.x0 && x < EXTENT.x1 && z > EXTENT.z0 && z < EXTENT.z1) continue;
+    if (x > -32 && x < 38 && z > 30 && z < 162) continue; // lake basin plants its own
+    const y = heightAt(x, z);
+    if (y < SEA + 0.8 || y > 58) continue;
+    if (Math.hypot(x - BASIN.x, z - BASIN.z) < 21) continue;
+    if ((RAIL.closest(x, z)?.d ?? 99) < 4) continue;
+    if (z > 10 && x > 80 && x < 140 && closestOnPolyline(x, z, MOUNTAIN_ROAD).d < 4) continue;
+    if (blocked.some(([bx, bz, br]) => Math.abs(x - bx) < br + 1 && Math.abs(z - bz) < br + 1)) continue;
+    const slope = Math.abs(heightAt(x + 1, z) - y) + Math.abs(heightAt(x, z + 1) - y);
+    if (slope > 1.9) continue;
+    const kind = y > 38 ? 2 : y > 16 ? frng.pick([0, 0, 1, 2]) : frng.pick([0, 1, 1, 3]);
+    pts.push({ x, y, z, s: frng.range(0.85, 1.45) * (kind === 2 && y > 44 ? 0.6 : 1), kind });
+  }
+  const trng = makeRng(5);
+  createForest(world, [
+    { name: 'sugi', build: (b) => sugi(b, 0, 0, 1, 0) },
+    { name: 'broadleaf', build: (b) => roundTree(b, trng, 0, 0, 1, 0) },
+    { name: 'pine', build: (b) => pineTree(b, trng, 0, 0, 1, 0) },
+    { name: 'birch', build: (b) => {
+      b.geo('foliage', new THREE.CylinderGeometry(1, 1, 1, 6), 0, 0.9, 0, 0xf0ece4, { sx: 0.07, sy: 1.8, sz: 0.07, sway: 0 });
+      for (let k = 0; k < 4; k += 1) b.box('foliage', 0.15, 0.03, 0.15, 0, 0.4 + k * 0.35, 0.02, 0x2a2a2a, { sway: 0 });
+      b.geo('foliage', new THREE.IcosahedronGeometry(1, 0), 0, 2.0, 0, 0x9ac858, { sx: 0.6, sy: 0.7, sz: 0.6, sway: (bx, by) => by / 2.6 });
+    } },
+  ], pts);
+}
 
 // utility poles + wires
 const chains = [rural.chain];
@@ -254,12 +333,12 @@ const staticMeshes = B.build(world);
 // ------------------------------------------------------------------ life
 
 await tick('waking the town');
-const tram = createTram(world);
+const tram = createRailSystem(world);
 const crossing = createCrossing(world);
 const traffic = createTraffic(world);
 const boats = createBoats(world);
 const gulls = createGulls(world);
-const fireflies = createFireflies(world, rural.fireflySpots);
+const fireflies = createFireflies(world, [...rural.fireflySpots, ...lake.fireflySpots]);
 const beam = createLighthouseBeam(world, beamPos);
 const cat = createCat(world, -4.9, 0.98, 2.2);
 
@@ -274,6 +353,8 @@ const nightLights = [
   [0xfff0c8, -2.5, 3.2, 9.8, 8],
   [0xfff0c8, 2.45, 3.2, -10.4, 8],
   ...rural.lights,
+  ...lake.lights,
+  ...mountain.lights,
 ].map(([c, x, y, z, s]) => {
   const l = new THREE.PointLight(c, 0, 9, 1.6);
   l.position.set(x, y, z);
@@ -341,6 +422,9 @@ const PRESETS = {
   harbour: { pos: [17, 11, -11], target: [0, -2.6, -34], label: 'Harbour' },
   diorama: { pos: [46, 42, 38], target: [0, -1, -8], label: 'Diorama' },
   yamate: { pos: [96, 19, 50], target: [128, 3, 10], label: 'Yamate' },
+  onsen: { pos: [104, 34, 78], target: [128, 18, 104], label: 'Onsen' },
+  lake: { pos: [30, 16, 86], target: [2, 0, 118], label: 'Lake' },
+  map: { pos: [60, 380, 330], target: [60, 0, 80], label: 'Map' },
 };
 let tween = null;
 function goTo(name, instant = false) {
@@ -604,7 +688,7 @@ window.addEventListener('keydown', (e) => {
     toast('Tram schedule +20s');
   } else if (k === 'p') wantPostcard = true;
   else if (k === 'b') flagView();
-  else if (k >= '1' && k <= '6') goTo(Object.keys(PRESETS)[Number(k) - 1]);
+  else if (k >= '1' && k <= '9') goTo(Object.keys(PRESETS)[Number(k) - 1]);
 });
 
 let wantPostcard = false;
@@ -632,7 +716,7 @@ function viewState() {
     zone: zoneAt(camera.position.x, camera.position.z, 0),
     hour: round(state.hour),
     playing: state.playing,
-    tram: { x: round(tram.x, 1), stop: tram.stop, doors: round(tram.doorsOpen ?? 0) },
+    trams: tram.trams.map((t) => ({ s: round(t.s, 1), stop: t.stop?.id ?? null, doors: round(t.doors) })),
     pixel: pixel.enabled ? pixel.pixelSize : 0,
     outlines: pixel.outlines,
     shrine: shrineMode,
@@ -716,12 +800,7 @@ function savePostcard() {
 }
 
 function tramStatus() {
-  const x = tram.x;
-  if (tram.stop === 'umimi') return '🚃 停車中 · tram at Umimi-chō';
-  if (tram.stop === 'yamate') return '🚃 停車中 · tram at Yamate';
-  if (Math.abs(tram.v) < 0.05) return '🚃 next tram from はまべ tunnel';
-  if (tram.v > 0) return x < STATION_STOP_X ? '🚃 arriving at Umimi-chō…' : '🚃 bound for Yamate →';
-  return x > STATION_STOP_X ? '🚃 ← bound for Umimi-chō' : '🚃 ← leaving for はまべ';
+  return tram.status();
 }
 
 // ------------------------------------------------------------------ loop
@@ -748,14 +827,19 @@ function frame() {
     if (tween.t >= 1) tween = null;
   }
   if (!walker.active) controls.update();
+  // high views see further: push the fog back with altitude
+  const alt = Math.max(0, camera.position.y - 30);
+  scene.fog.near = 60 + alt * 1.2;
+  scene.fog.far = 260 + alt * 2.4;
   // shadows follow whatever we're looking at
   const focus = walker.active ? camera.position : controls.target;
   sun.target.position.set(focus.x, 0, focus.z);
   sun.position.copy(sun.target.position).addScaledVector(lightDir, 70);
 
   tram.update(elapsed, dt);
-  crossing.update(tram.crossing, elapsed, dt);
-  traffic.update(dt, crossing.closed || tram.crossing);
+  const townCrossing = tram.crossingActive.town;
+  crossing.update(townCrossing, elapsed, dt);
+  traffic.update(dt, tram.crossings.map((c) => ({ x: c.x, z: c.z, active: tram.crossingActive[c.id] || (c.id === 'town' && crossing.closed) })));
   boats.update(elapsed);
   gulls.update(elapsed);
   fireflies.update(elapsed, state.night);
@@ -763,8 +847,11 @@ function frame() {
   cat.update(elapsed);
   swings(elapsed);
   rural.update(elapsed);
+  lake.update(elapsed);
+  mountain.update(elapsed);
+  mountain.steamMat.uniforms.uScale.value = (pixel.height * camera.projectionMatrix.elements[5]) / 2;
   clouds.userData.update(dt);
-  sound.update(elapsed, state.night, tram.crossing, 1 - Math.min(1, camera.position.distanceTo(new THREE.Vector3(0, 0, TRACK_Z)) / 60));
+  sound.update(elapsed, state.night, townCrossing, 1 - Math.min(1, camera.position.distanceTo(new THREE.Vector3(0, 0, TRACK_Z)) / 60));
 
   statusTimer -= dt;
   if (statusTimer <= 0) {
@@ -802,4 +889,4 @@ if (viewParam) {
 }
 
 // handy for poking around from the console
-window.town = { exitMode: () => walker.active && walker.exit(), toggleFly, viewState, applyView, heightAt, walker, toggleWalk, applyTimeOfDay, scene, camera, controls, state, tram, traffic, pixel, staticMeshes, goTo, setShrineMode, roadBHeight };
+window.town = { rail: tram, exitMode: () => walker.active && walker.exit(), toggleFly, viewState, applyView, heightAt, walker, toggleWalk, applyTimeOfDay, scene, camera, controls, state, tram, traffic, pixel, staticMeshes, goTo, setShrineMode, roadBHeight };

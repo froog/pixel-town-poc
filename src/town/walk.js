@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import {
-  distToPolyline, EXTENT, heightAt, PORTAL_R, RAIL_EXIT, RAIL_V, railY, riverZ, ROAD_B_Z, ROAD_TUNNEL, roadBHeight, RURAL_ROAD, RURAL_Y, SEA, TRACK_Z, VALLEY,
+  BASIN, distToPolyline, EXTENT, heightAt, LAKE, lakeDistance, RAIL, RAIL_STATIONS, RAIL_V, railSections_, WORLD, riverZ, ROAD_B_Z, ROAD_TUNNEL, roadBHeight, RURAL_ROAD, RURAL_Y, SEA, TRACK_Z, VALLEY,
 } from './terrain.js';
 import { PLATEAU, PLATFORM, STAIRS } from './layout.js';
 import { solids } from './buildings.js';
@@ -21,8 +21,20 @@ const FLY_FAST = 26;
 export function walkableY(x, z) {
   // road tunnel floor
   if (x > ROAD_TUNNEL.x0 - 0.5 && x < ROAD_TUNNEL.x1 + 0.5 && Math.abs(z - ROAD_B_Z) < 2.1) return roadBHeight(x) + 0.02;
-  // east rail tunnel climbs to Yamate; Yamate station platform + steps
-  if (x > PORTAL_R - 0.5 && x < RAIL_EXIT + 0.5 && Math.abs(z - TRACK_Z) < 1.3) return railY(x) + 0.12;
+  // on the railway inside tunnels and on bridges, walk on the track bed
+  const q = RAIL.closest(x, z);
+  if (q && q.d < 1.3 && railSections_().typeAt(q.s) !== 'cut') return RAIL.at(q.s).y + 0.12;
+  // platforms of the loop's rural stations (onsen, lake)
+  for (const st of RAIL_STATIONS) {
+    if (st.id === 'umimi' || st.id === 'yamate') continue;
+    const p = RAIL.at(st.s);
+    const dx = x - p.x;
+    const dz = z - p.z;
+    const u = dx * p.tx + dz * p.tz;
+    const v = (-dx * p.tz + dz * p.tx) * st.side;
+    if (Math.abs(u) < 6.5 && v > 1.35 && v < 3.15) return p.y + 0.55;
+  }
+  // Yamate station platform + steps
   if (x > 84.2 && x < 96.4 && z > TRACK_Z + 0.8 && z < TRACK_Z + 2.6) return RAIL_V + 0.55;
   if (x > 83.2 && x <= 84.2 && z > TRACK_Z + 1.2 && z < TRACK_Z + 2.2) return RAIL_V + (0.55 * (x - 83.2)) / 1.0;
   // shrine terrace + stairs
@@ -47,7 +59,7 @@ export function walkableY(x, z) {
 }
 
 function blocked(x, z, y) {
-  if (x < EXTENT.x0 + 2 || x > EXTENT.x1 - 2 || z < EXTENT.z0 + 2 || z > EXTENT.z1 - 2) return true;
+  if (x < WORLD.x0 + 2 || x > WORLD.x1 - 2 || z < WORLD.z0 + 2 || z > WORLD.z1 - 2) return true;
   if (y < SEA + 0.25) return true;
   if (x > 64 && Math.abs(z - riverZ(x)) < 2.2 && y < VALLEY - 0.4) return true;
   for (const s of solids) {
@@ -152,8 +164,8 @@ export function createWalker({ camera, canvas, onExit, onZone }) {
     const speed = (run || Math.hypot(touch.mx, touch.mz) > 0.95 ? FLY_FAST : FLY) * dt;
     const p = camera.position;
     p.addScaledVector(move, speed);
-    p.x = THREE.MathUtils.clamp(p.x, EXTENT.x0 - 40, EXTENT.x1 + 40);
-    p.z = THREE.MathUtils.clamp(p.z, EXTENT.z0 - 60, EXTENT.z1 + 40);
+    p.x = THREE.MathUtils.clamp(p.x, WORLD.x0 - 30, WORLD.x1 + 30);
+    p.z = THREE.MathUtils.clamp(p.z, WORLD.z0 - 90, WORLD.z1 + 30);
     const floor = Math.max(walkableY(p.x, p.z), SEA) + 0.35;
     p.y = THREE.MathUtils.clamp(p.y, floor, 160);
     pos.set(p.x, p.y, p.z);
@@ -279,7 +291,11 @@ export function zoneAt(x, z, y) {
   if (x > ROAD_TUNNEL.x0 && x < ROAD_TUNNEL.x1) return Math.abs(z - TRACK_Z) < 2 ? '鉄道トンネル · Railway Tunnel' : '山手トンネル · Yamate Tunnel';
   if (x > 83 && x < 97 && Math.abs(z - TRACK_Z - 1.7) < 1.5) return '山手駅 · Yamate Station';
   if (x > 95 && x < 105 && z < -7) return '千本鳥居 · Path of a Thousand Torii';
-  if (x > 145 && z > 33) return '山手寺 · Yamate Temple';
+  if (x > 145 && z > 33 && z < 50) return '山手寺 · Yamate Temple';
+  if (Math.hypot(x - BASIN.x, z - BASIN.z) < 28) return '山の湯温泉 · Yama-no-yu Onsen';
+  if (z > 30 && lakeDistance(x, z) < LAKE.r + 10) return '湖畔 · Kohan Lake';
+  if (z > 30 && x < 60) return '湖畔の里 · lakeside fields';
+  if (z > 50) return '山 · the mountains';
   if (x >= ROAD_TUNNEL.x1) return '山手の里 · Yamate Village';
   if (y !== undefined) return '海見町 · Umimi-chō';
   return '';

@@ -27,7 +27,22 @@
 - **first-person walking** (`F` or the Walk button): WASD + mouse look,
   Shift to run; on phones, left thumb walks and right thumb looks. You follow
   stairs, the platform, the tunnels and the bridge; buildings and water block you
-- the tram shuttles between Umimi-chō and a little country halt, 山手駅
+- **one enclosed world**: mountains ring every land edge, the bay is closed by
+  headlands, and a railway loop links all of it:
+  Umimi-chō → Yamate → river bridge → level crossing → up to the onsen →
+  a long tunnel west → the lake → back into town. Two trams run it, with
+  tunnels, bridges and cuttings worked out automatically from the terrain
+- **山の湯温泉 onsen village** in a high basin, up a switchback road with
+  guardrails and curve mirrors: inns, a steaming yubatake (hot-water field),
+  rock pools with snow monkeys, a foot bath, a bathhouse, a waterfall with a
+  suspension bridge, a ropeway to a summit shrine, and a mountain tea house
+- **湖畔 lake** south of town: swan boats and rowboats, a pier, a shrine
+  island with a red arched bridge, a torii standing in the water, a lakeside
+  inn, willows and reeds, and farmland along the road from town
+- **small details**: winding footpaths from every house to the road and out
+  to the fields, roadside shrines (hokora), unmanned vegetable stands,
+  bicycles and mailboxes
+- (earlier) the tram shuttled between Umimi-chō and a little country halt, 山手駅
   (Yamate station): it climbs through the east railway tunnel (which you can
   walk through too) and comes out beside the road tunnel in the valley
 - the tram's doors slide open at both platforms; railway and road tunnels are
@@ -42,7 +57,7 @@ tram) to `logs/latest.json` and `logs/viewport.jsonl` whenever the view changes.
 `B` or 🚩 flags a view with a note and screenshot into `logs/flags/`. Every
 entry has a `link` with `#view=…` that reopens that exact viewpoint. Add `?lite` for a
 lighter build; touch devices get it automatically.
-Keys: `1-6` cameras, `F` walk, `V` fly (WASD, `R` up, `F` down, Shift fast), `N` day/night, `T` hurry the tram, `[ ]` pixel size,
+Keys: `1-9` cameras (7 Onsen, 8 Lake, 9 Map), `F` walk, `V` fly (WASD, `R` up, `F` down, Shift fast), `N` day/night, `T` hurry the tram, `[ ]` pixel size,
 `H` hide UI, `P` save a postcard PNG, `space` pause time.
 
 The previous single-asset viewer (rotation controls) now lives at
@@ -51,6 +66,10 @@ The previous single-asset viewer (rotation controls) now lives at
 | Dusk | Night | TripoSR shrine in place |
 | --- | --- | --- |
 | ![](docs/screenshots/diorama-dusk.png) | ![](docs/screenshots/street-night.png) | ![](docs/screenshots/shrine-triposr.png) |
+
+| World map | Onsen | Lake |
+| --- | --- | --- |
+| ![](docs/screenshots/world-map.png) | ![](docs/screenshots/onsen.png) | ![](docs/screenshots/lake.png) |
 
 | Yamate valley | Walking the torii path | Tram doors open |
 | --- | --- | --- |

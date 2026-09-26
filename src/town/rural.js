@@ -1,8 +1,11 @@
 import * as THREE from 'three';
 import { gableGeometry, hipGeometry, mat4 } from './batcher.js';
-import { distToPolyline, EXTENT, heightAt, riverZ, RURAL_ROAD, RURAL_Y, VALLEY } from './terrain.js';
+import { distToPolyline, EXTENT, heightAt, MOUNTAIN_ROAD, RAIL, RAIL_V as RAIL_Y_V, riverZ, RURAL_ROAD, RURAL_Y, VALLEY } from './terrain.js';
 import { groundRange, house, PALETTE, solids, stoneLantern, torii } from './buildings.js';
-import { bush, hydrangea, paddyCell, pineTree, roundTree, utilityPole, vendingMachine } from './props.js';
+import {
+  bicycle, bush, hokora, hydrangea, mailbox, mujinStand, paddyCell, pineTree, roundTree, utilityPole, vendingMachine,
+} from './props.js';
+import { footpath, pathToRoad } from './paths.js';
 import { makeSign } from './signs.js';
 import { shared } from './materials.js';
 import { DENSITY } from './quality.js';
@@ -37,7 +40,7 @@ export const BRIDGE = (() => {
   return best;
 })();
 
-function minka(B, rng, x, z, ry = 0) {
+export function minka(B, rng, x, z, ry = 0) {
   const w = rng.range(4.2, 5.2);
   const d = rng.range(3.0, 3.6);
   const { hi } = groundRange(x, z, w + 1, d + 1, ry);
@@ -70,9 +73,11 @@ function minka(B, rng, x, z, ry = 0) {
       B.box('solid', 0.08, 0.6, 0.08, px, 3.9, -0.12, 0x3e3a34, { rx: -0.5 });
     }
   });
+  const f = d / 2 + 1.1;
+  return { door: [x + Math.sin(ry) * f, z + Math.cos(ry) * f] };
 }
 
-function kura(B, x, z, ry = 0) {
+export function kura(B, x, z, ry = 0) {
   const w = 2.2;
   const d = 2.6;
   const { hi } = groundRange(x, z, w, d, ry);
@@ -89,7 +94,7 @@ function kura(B, x, z, ry = 0) {
   });
 }
 
-function sugi(B, x, z, s, y = heightAt(x, z)) {
+export function sugi(B, x, z, s, y = heightAt(x, z)) {
   const sway = (bx, by) => Math.max(0, (by - y) / (4 * s)) * 0.7;
   B.geo('foliage', cyl6, x, y + 0.8 * s, z, 0x5a3a26, { sx: 0.12 * s, sy: 1.6 * s, sz: 0.12 * s, sway: 0 });
   const greens = [0x234f2c, 0x2a5a32, 0x31663a];
@@ -99,7 +104,7 @@ function sugi(B, x, z, s, y = heightAt(x, z)) {
   }
 }
 
-function persimmon(B, rng, x, z) {
+export function persimmon(B, rng, x, z) {
   const y = heightAt(x, z);
   roundTree(B, rng, x, z, 1.1, y);
   for (let i = 0; i < 9; i += 1) {
@@ -109,7 +114,7 @@ function persimmon(B, rng, x, z) {
   }
 }
 
-function bamboo(B, rng, x, z) {
+export function bamboo(B, rng, x, z) {
   const y = heightAt(x, z);
   const h = rng.range(3.4, 5.2);
   const lean = rng.range(-0.08, 0.08);
@@ -184,7 +189,7 @@ function scarecrow(B, x, z, ry) {
   });
 }
 
-function jizo(B, x, z, ry) {
+export function jizo(B, x, z, ry) {
   const y = heightAt(x, z);
   B.at(x, y, z, ry, () => {
     B.block('solid', 0.34, 0.1, 0.3, 0, 0, 0, 0x8e8e84);
@@ -470,10 +475,25 @@ export function buildRural(B, decor, rng, parent) {
 
   // --- landmarks
   const features = [];
-  // keep the railway and Yamate station clear
-  for (let x = 60; x <= 100; x += 2) claim(x, -7, 3.2);
+  const doors = [];
+  const minkaD = (...args) => {
+    const r = minka(...args);
+    doors.push(r.door);
+    return r;
+  };
+  // keep the railway (incl. Yamate station) and the mountain road clear
+  for (let s = 0; s < RAIL.length; s += 1.5) {
+    const p = RAIL.at(s);
+    if (p.x > 56 && p.z < 60) claim(p.x, p.z, p.x < 100 ? 3.2 : 3.6);
+  }
+  for (let i = 0; i < MOUNTAIN_ROAD.length - 1; i += 1) {
+    const [ax, az] = MOUNTAIN_ROAD[i];
+    const [bx, bz] = MOUNTAIN_ROAD[i + 1];
+    const len = Math.hypot(bx - ax, bz - az);
+    for (let t = 0; t <= len; t += 1.5) claim(ax + ((bx - ax) * t) / len, az + ((bz - az) * t) / len, 3.4);
+  }
   // farm by the tunnel exit with a water wheel on the river
-  minka(B, rng, 84, 7.5, Math.PI + 0.1);
+  minkaD(B, rng, 84, 7.5, Math.PI + 0.1);
   kura(B, 79.5, 9.5, Math.PI + 0.1);
   claim(83, 8, 5);
   const wheelZ = riverZ(89) - 2.3;
@@ -485,14 +505,14 @@ export function buildRural(B, decor, rng, parent) {
   persimmon(B, rng, 79, 5);
 
   // farm south of the road
-  minka(B, rng, 78, -13.5, -0.05);
+  minkaD(B, rng, 78, -13.5, -0.05);
   claim(78, -13.5, 4.5);
   persimmon(B, rng, 83.5, -12);
   hydrangea(B, rng, 75.4, -10.8, 1.1);
   hydrangea(B, rng, 76.4, -10.7, 1.0);
 
   // farm with greenhouses
-  minka(B, rng, 112, -9, 0.05);
+  minkaD(B, rng, 112, -9, 0.05);
   kura(B, 116.5, -10.5, 0);
   claim(113, -9.5, 5.5);
   for (let i = 0; i < 3; i += 1) {
@@ -508,8 +528,16 @@ export function buildRural(B, decor, rng, parent) {
 
   // senbon torii path up the south slope to a small shrine
   const tx = 100;
-  for (let z = -8.5; z > -29; z -= 1.05) {
+  for (let z = -10.4; z > -29; z -= 1.05) {
     torii(B, tx, heightAt(tx, z), z, 0.72);
+  }
+  // footpath from the road over the line to the first torii, with a plank crossing
+  footpath(B, [[tx, -3.6], [tx + 0.4, -7], [tx, -9.8]], { style: 'gravel', wander: 0.2 });
+  B.block('solid', 1.4, 0.26, 2.6, tx, RAIL_Y_V - 0.02, -7, 0x6a5238);
+  for (const dz of [-1.6, 1.6]) {
+    B.block('solid', 0.06, 1.1, 0.06, tx + 0.9, heightAt(tx + 0.9, -7 + dz), -7 + dz, 0x222222);
+    B.box('solid', 0.5, 0.08, 0.02, tx + 0.9, heightAt(tx + 0.9, -7 + dz) + 1.05, -7 + dz, 0xf2d020, { rz: 0.6 });
+    B.box('solid', 0.5, 0.08, 0.02, tx + 0.9, heightAt(tx + 0.9, -7 + dz) + 1.05, -7 + dz, 0xf2d020, { rz: -0.6 });
   }
   const sy = heightAt(tx, -31);
   B.at(tx, sy, -31, Math.PI, () => {
@@ -519,7 +547,7 @@ export function buildRural(B, decor, rng, parent) {
   });
   stoneLantern(B, tx - 1.2, heightAt(tx - 1.2, -29.6), -29.6, 0.8);
   stoneLantern(B, tx + 1.2, heightAt(tx + 1.2, -29.6), -29.6, 0.8);
-  for (let z = -8; z > -31; z -= 1) claim(tx, z, 1.4);
+  for (let z = -10; z > -31; z -= 1) claim(tx, z, 1.4);
 
   // temple, pagoda and village at the head of the valley
   templeHall(B, decor, 164, 41.5);
@@ -535,12 +563,12 @@ export function buildRural(B, decor, rng, parent) {
   claim(160, 37, 2.4);
 
   for (const [x, z, ry] of [[146, 24, 0.1], [156, 22, -0.1], [168, 25, 0.05], [174, 20, 0.2]]) {
-    minka(B, rng, x, z, ry);
+    minkaD(B, rng, x, z, ry);
     claim(x, z, 4.6);
   }
   kura(B, 151, 27.5, 0);
   claim(151, 27.5, 2);
-  for (const [x, z] of [[130, 30], [135, 35], [171, 36.5], [176, 36]]) {
+  for (const [x, z] of [[130, 30], [171, 36.5], [176, 36]]) {
     if (!free(x, z, 1.8)) continue;
     house(B, rng, { x, z, ry: rng.range(-0.1, 0.1), floors: rng.pick([1, 2]), style: rng.pick(['hip', 'gable']) });
     claim(x, z, 2);
@@ -592,6 +620,31 @@ export function buildRural(B, decor, rng, parent) {
     scarecrow(B, x + 0.4, z, rng.range(0, 6));
   }
   features.push(egrets(parent, rng, Array.from({ length: 6 }, () => rng.pick(paddies))));
+
+  // --- paths from farmhouses to the road and out to their fields; small details
+  for (const d of doors) {
+    pathToRoad(B, d, RURAL_ROAD, { style: 'dirt', maxLength: 24, roadHalf: 1.7 });
+    const near = paddies.filter(([px, pz]) => Math.hypot(px - d[0], pz - d[1]) < 16);
+    if (near.length) {
+      const [px, pz] = rng.pick(near);
+      footpath(B, [d, [(d[0] + px) / 2 + rng.range(-2, 2), (d[1] + pz) / 2 + rng.range(-2, 2)], [px, pz - 1.9]], { style: 'dirt', width: 0.5, wander: 1 });
+    }
+    if (rng.chance(0.6)) bicycle(B, d[0] + 1.1, d[1] - 0.2, rng.range(0, 6), rng.pick([0x2f5fa8, 0xd83a2a, 0xe8e8e0]));
+    if (rng.chance(0.5)) mailbox(B, d[0] - 1.2, d[1] + 0.8, 0);
+  }
+  for (const [x, z, ry] of [[70, 1.2, Math.PI], [104, 4.6, Math.PI * 0.8], [132, 27.8, Math.PI * 0.9]]) {
+    if (free(x, z, 0.6)) mujinStand(B, rng, x, z, ry);
+  }
+  let shrines = 0;
+  for (let i = 0; i < 40 && shrines < 5; i += 1) {
+    const [px, pz] = rng.pick(paddies);
+    const x = px + 2.3;
+    const z = pz + 2.3;
+    if (!free(x, z, 0.4)) continue;
+    hokora(B, x, z, rng.range(-0.5, 0.5));
+    claim(x, z, 0.8);
+    shrines += 1;
+  }
 
   // --- utility poles along the road
   const chain = [];

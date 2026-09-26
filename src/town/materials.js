@@ -39,6 +39,9 @@ export function foliageMaterial() {
         '#include <begin_vertex>',
         `#include <begin_vertex>
         float phase = position.x * 0.35 + position.z * 0.27;
+        #ifdef USE_INSTANCING
+          phase += instanceMatrix[3].x * 0.35 + instanceMatrix[3].z * 0.27;
+        #endif
         float gust = 0.6 + 0.4 * sin(uTime * 0.37 + position.x * 0.05);
         transformed.x += sin(uTime * 1.7 + phase) * 0.045 * sway * uWind * gust;
         transformed.z += cos(uTime * 1.3 + phase * 1.3) * 0.03 * sway * uWind * gust;`
