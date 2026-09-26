@@ -283,7 +283,9 @@ export function railPortals() {
 export function rawHeight(x0, z0) {
   // Region boundaries are domain-warped so valleys and ridges meander; the
   // town centre (|x|, |z| < ~40) stays exactly as laid out.
-  const warpAmt = 11 * smoothstep(40, 75, Math.hypot(x0, z0 * 1.3));
+  // no warp around the ridge tunnels either: rail and road portals must line up
+  const tunnelZone = (1 - smoothstep(72, 86, x0)) * (1 - smoothstep(12, 22, Math.abs(z0 + 3)));
+  const warpAmt = 11 * smoothstep(40, 75, Math.hypot(x0, z0 * 1.3)) * (1 - tunnelZone);
   const x = x0 + (fbm(x0 * 0.018 + 31, z0 * 0.018, 3) - 0.5) * 2 * warpAmt;
   const z = z0 + (fbm(x0 * 0.018, z0 * 0.018 + 57, 3) - 0.5) * 2 * warpAmt;
   const town = 1 - smoothstep(44, 60, x);
@@ -408,12 +410,19 @@ export function heightAt(x, z) {
     const dp = Math.min(q.s - sec.s0, sec.s1 - q.s);
     const cover = ry + RAIL_COVER;
     const w = 1 - smoothstep(3.2, 9, q.d);
-    h = lerp(h, Math.min(Math.max(h, cover), cover + dp * 1.15), w);
+    // level for 3 units behind the portal (under the lid), then ramp up
+    h = lerp(h, Math.min(Math.max(h, cover), cover + Math.max(0, dp - 3) * 1.15), w);
     if (q.d < 3.2) h = Math.max(h, cover);
   } else if (type === 'cut') {
     const depth = Math.abs(h - ry);
     const band = 1 - smoothstep(1.5, 3.2 + Math.min(depth * 0.5, 4), q.d);
     h = lerp(h, ry - 0.1, band);
+  }
+  // roads keep their own band even where a rail tunnel's cover spreads over it
+  if (x > 2 && x <= ROAD_TUNNEL.x0 + 0.5) {
+    h = lerp(h, roadBHeight(x) - 0.14, 1 - smoothstep(1.9, 3.6, Math.abs(z - ROAD_B_Z)));
+  } else if (x >= ROAD_TUNNEL.x1 - 0.5 && x < 90) {
+    h = lerp(h, RURAL_Y - 0.14, 1 - smoothstep(1.9, 3.6, distToPolyline(x, z, RURAL_ROAD)));
   }
   return h;
 }

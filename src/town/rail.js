@@ -165,8 +165,8 @@ function tunnels(B, decor) {
   for (const p of railPortals()) {
     const n = [-p.tz, p.tx];
     let cover = p.y + RAIL_COVER;
-    for (const u of [1.2, 2.2, 3.2]) {
-      for (let v = -3.2; v <= 3.2; v += 0.8) cover = Math.max(cover, heightAt(p.x + p.tx * u + n[0] * v, p.z + p.tz * u + n[1] * v));
+    for (const u of [1.2, 2.2, 2.8]) {
+      for (let v = -2.6; v <= 2.6; v += 0.65) cover = Math.max(cover, heightAt(p.x + p.tx * u + n[0] * v, p.z + p.tz * u + n[1] * v));
     }
     B.push(mat4(p.x, 0, p.z, yawOf(p.tx, p.tz)));
     portal(B, 0, 0, p.y - 0.08, W, WALL, -1, cover, 1.4);
