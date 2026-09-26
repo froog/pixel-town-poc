@@ -440,7 +440,8 @@ export function isTerrainHole(cx, cz, step) {
     const dz = cz - p.z;
     const u = dx * p.tx + dz * p.tz;
     const v = -dx * p.tz + dz * p.tx;
-    if (u > 0 && u < step + 0.6 && Math.abs(v) < 2.6) return true;
+    // cells straddling the portal line too: their slope would cut across the arch
+    if (u > -0.8 * step && u < step + 0.6 && Math.abs(v) < 2.6) return true;
   }
   return false;
 }

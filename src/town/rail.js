@@ -133,7 +133,7 @@ function tunnels(B, decor) {
       const a = RAIL.at(s);
       const b = RAIL.at(s2);
       const depth = Math.min((s + s2) / 2 - sec.s0, sec.s1 - (s + s2) / 2);
-      col.copy(MOUTH).lerp(DEEP, THREE.MathUtils.smoothstep(depth, 0.5, 9));
+      col.copy(MOUTH).lerp(DEEP, THREE.MathUtils.smoothstep(depth, 0.3, 5));
       const na = [-a.tz, a.tx];
       const nb = [-b.tz, b.tx];
       for (let k = 0; k < prof.length - 1; k += 1) {
