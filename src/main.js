@@ -432,6 +432,8 @@ function goTo(name, instant = false) {
   if (!p) return;
   if (walker.active) walker.exit();
   document.querySelectorAll('[data-cam]').forEach((b) => b.classList.toggle('on', b.dataset.cam === name));
+  const sel = document.querySelector('#cam-select');
+  if (sel) sel.value = name;
   const to = { pos: new THREE.Vector3(...p.pos), target: new THREE.Vector3(...p.target) };
   if (instant) {
     camera.position.copy(to.pos);
@@ -482,6 +484,7 @@ function leaveOrbit() {
   camera.updateProjectionMatrix();
   document.body.classList.add('walking');
   document.querySelectorAll('[data-cam]').forEach((b) => b.classList.remove('on'));
+  $('#cam-select').value = '';
 }
 function setModeUi(mode) {
   document.body.classList.toggle('flying', mode === 'fly');
@@ -621,6 +624,10 @@ function togglePlay() {
   $('#play').textContent = state.playing ? '❚❚' : '▶';
 }
 document.querySelectorAll('[data-cam]').forEach((b) => b.addEventListener('click', () => goTo(b.dataset.cam)));
+// on narrow screens the camera buttons collapse into this dropdown
+const camSelect = $('#cam-select');
+document.querySelectorAll('[data-cam]').forEach((b) => camSelect.add(new Option(b.textContent, b.dataset.cam)));
+camSelect.addEventListener('change', () => goTo(camSelect.value));
 $('#orbit').addEventListener('click', () => {
   controls.autoRotate = !controls.autoRotate;
   $('#orbit').classList.toggle('on', controls.autoRotate);
